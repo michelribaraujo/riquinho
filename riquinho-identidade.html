@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>riquinho — identidade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --perg:#F7F2E8; --branco:#FDFBF6; --linha:#E6DEC9; --linha2:#D2C7AB;
+  --tinta:#211F2E; --tinta2:#5B5768; --tinta3:#6C6879;
+  --indigo:#2C3563; --indigo-vivo:#414E8F; --noite:#191C33; --noite-funda:#12142B;
+  --ouro:#C0913A; --ouro-luz:#D9B36A; --ouro-txt:#8A6420;
+  --pode:#0A6E52; --calma:#8A6420; --nao:#7E3B47;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--perg);color:var(--tinta);font-family:var(--sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+.pg{max-width:920px;margin:0 auto;padding:0 24px 88px}
+h2{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta2);
+  margin-bottom:22px;padding-bottom:10px;border-bottom:1px solid var(--linha)}
+h2::before{content:"✦";color:var(--ouro);margin-right:9px;font-size:11px}
+h3{font-family:var(--serif);font-size:21px;font-weight:600;margin-bottom:6px}
+p{color:var(--tinta2);max-width:64ch}
+section{margin-top:64px}
+.num{font-variant-numeric:tabular-nums}
+.serif{font-family:var(--serif)}
+
+/* céu de abertura */
+.ceu{background:var(--noite-funda);color:#EFEDF7;border-radius:0 0 26px 26px;
+  padding:72px 24px 64px;position:relative;overflow:hidden;margin:0 -24px}
+.ceu-inner{max-width:920px;margin:0 auto;padding:0 24px;position:relative;z-index:1;
+  display:flex;align-items:center;gap:30px;flex-wrap:wrap}
+.ceu h1{font-family:var(--serif);font-size:58px;font-weight:600;letter-spacing:.01em;line-height:1}
+.ceu .sub{font-size:17px;color:#A5A2BC;margin-top:12px;max-width:52ch}
+.ceu .sub b{color:var(--ouro-luz);font-weight:600}
+.estrelas{position:absolute;inset:0;z-index:0;color:var(--ouro-luz)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:var(--branco);border:1px solid var(--linha);border-radius:16px;padding:26px;
+  box-shadow:0 1px 2px rgba(33,31,46,.05)}
+.carta{border:1px solid var(--linha2);
+  box-shadow:inset 0 0 0 4px var(--branco), inset 0 0 0 5px var(--linha), 0 1px 2px rgba(33,31,46,.05)}
+
+.opt{text-align:center;padding:0 0 24px;border-radius:16px;border:1px solid var(--linha);
+  background:var(--branco);overflow:hidden}
+.opt.esc{border:1.5px solid var(--ouro)}
+.opt .noiteBox{background:var(--noite);padding:30px 0 26px;margin-bottom:18px;position:relative}
+.opt .tag{display:block;width:fit-content;margin:14px auto -4px;font-size:11px;font-weight:600;
+  color:var(--ouro-txt);background:rgba(192,145,58,.12);padding:3px 12px;border-radius:999px}
+.opt h3{margin:0 18px 6px}
+.opt p{font-size:13px;margin:0 auto;max-width:32ch;padding:0 18px}
+
+.cor{border-radius:14px;overflow:hidden;border:1px solid var(--linha);background:var(--branco)}
+.cor .amostra{height:74px} .cor .txt{padding:13px 15px}
+.cor .nome{font-size:14px;font-weight:600}
+.cor .hex{font-size:12px;color:var(--tinta3);font-variant-numeric:tabular-nums}
+.cor .uso{font-size:12px;color:var(--tinta3);margin-top:5px;line-height:1.45}
+
+.esp{display:flex;align-items:baseline;gap:18px;padding:12px 0;border-bottom:1px solid var(--linha)}
+.esp:last-child{border-bottom:none}
+.esp .rot{font-size:12px;color:var(--tinta3);width:150px;flex:none}
+
+.sinal{display:inline-flex;align-items:center;gap:8px;padding:6px 15px 6px 11px;border-radius:999px;
+  font-size:14px;font-weight:600}
+.sinal svg{width:14px;height:14px}
+.s-pode{background:rgba(10,110,82,.10);color:var(--pode)}
+.s-calma{background:rgba(138,100,32,.11);color:var(--calma)}
+.s-nao{background:rgba(126,59,71,.10);color:var(--nao)}
+
+.fala{border-left:2px solid var(--ouro);padding:2px 0 2px 15px;margin:15px 0}
+.fala p{color:var(--tinta)}
+.fala .assina{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ouro-txt);margin-top:4px}
+
+.regra{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--linha)}
+.regra:last-child{border-bottom:none}
+.regra .mk{font-family:var(--serif);font-style:italic;color:var(--ouro-txt);font-size:17px}
+.regra b{font-weight:600;color:var(--tinta)} .regra span{color:var(--tinta2)}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12px;font-weight:500;color:var(--tinta3);padding-bottom:9px;border-bottom:1px solid var(--linha)}
+td{padding:12px 0;border-bottom:1px solid var(--linha);color:var(--tinta2)}
+tr:last-child td{border-bottom:none} td b{color:var(--tinta);font-weight:600}
+.rodape{margin-top:64px;font-size:12px;color:var(--tinta3);text-align:center}
+.rodape .serif{font-style:italic;font-size:14px;color:var(--ouro-txt)}
+@media(max-width:760px){.g2,.g3{grid-template-columns:1fr}.ceu h1{font-size:42px}}
+</style>
+</head>
+<body>
+
+<div class="ceu">
+  <svg class="estrelas" viewBox="0 0 1200 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="currentColor" stroke="currentColor">
+      <path d="M850 60 L920 110 L1010 84 M920 110 L960 190 L1070 214" fill="none" stroke-width=".7" opacity=".4"/>
+      <circle cx="850" cy="60" r="2"/><circle cx="920" cy="110" r="2.8"/><circle cx="1010" cy="84" r="1.7"/>
+      <circle cx="960" cy="190" r="2.2"/><circle cx="1070" cy="214" r="1.6"/>
+      <circle cx="740" cy="150" r="1.3" opacity=".7"/><circle cx="1120" cy="70" r="1.4" opacity=".7"/>
+      <circle cx="640" cy="60" r="1.1" opacity=".55"/><circle cx="1150" cy="280" r="1.8" opacity=".8"/>
+      <path d="M700 250 l3 6.5 6.5 3 -6.5 3 -3 6.5 -3-6.5 -6.5-3 6.5-3z" opacity=".85"/>
+      <path d="M1090 140 l2.2 4.8 4.8 2.2 -4.8 2.2 -2.2 4.8 -2.2-4.8 -4.8-2.2 4.8-2.2z" opacity=".6"/>
+      <circle cx="180" cy="80" r="1.2" opacity=".5"/><circle cx="90" cy="200" r="1.6" opacity=".6"/>
+      <circle cx="300" cy="270" r="1.1" opacity=".45"/>
+    </g>
+  </svg>
+  <div class="ceu-inner">
+    <svg width="110" height="110" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="15" fill="none" stroke="#D9B36A" stroke-width=".6" opacity=".5"/>
+      <circle cx="16" cy="16" r="12.4" fill="none" stroke="#D9B36A" stroke-width=".35" opacity=".4"/>
+      <path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z"
+            fill="none" stroke="#D9B36A" stroke-width="1" stroke-linejoin="round"/>
+      <circle cx="16" cy="16" r="1.2" fill="#D9B36A"/>
+    </svg>
+    <div>
+      <h1>riquinho</h1>
+      <p class="sub">Uma carta celeste pro seu dinheiro. Pergaminho, tinta índigo e fio de ouro —
+      e no centro, a <b>estrela de oito pontas</b>: o símbolo do povo cigano,
+      em honra à guia que caminha na sua frente.</p>
+    </div>
+  </div>
+</div>
+
+<div class="pg">
+
+  <section>
+    <h2>A ideia em uma frase</h2>
+    <p class="serif" style="font-size:26px;color:var(--tinta);line-height:1.35">O Organizze guarda o que aconteceu.
+    O riquinho lê o céu do seu mês — e avisa antes, com leveza.</p>
+    <p style="margin-top:14px;font-size:13px">Místico pelo <b>traço</b>, não pela cor berrante: a referência são os
+    atlas astronômicos antigos e a gravura das cartas de tarô — linha fina, ouro comedido, muito ar.
+    Nada de cor chapada de desenho infantil.</p>
+  </section>
+
+  <section>
+    <h2>Símbolo — três caminhos</h2>
+    <div class="g3">
+      <div class="opt esc">
+        <div class="noiteBox">
+          <svg width="92" height="92" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="12.4" fill="none" stroke="#D9B36A" stroke-width=".4" opacity=".5"/>
+            <path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z"
+                  fill="none" stroke="#D9B36A" stroke-width="1.05" stroke-linejoin="round"/>
+            <circle cx="16" cy="16" r="1.25" fill="#D9B36A"/>
+            <circle cx="25.5" cy="7.5" r=".7" fill="#D9B36A" opacity=".8"/>
+            <circle cx="6.8" cy="24.6" r=".55" fill="#D9B36A" opacity=".55"/>
+          </svg>
+        </div>
+        <span class="tag">minha recomendação</span>
+        <h3>A · Estrela Cigana</h3>
+        <p>A estrela de oito pontas do povo cigano, em traço de gravura. É a sua guia
+        de frente apontando o caminho — e ninguém mais tem esse símbolo num app de finanças.</p>
+      </div>
+
+      <div class="opt">
+        <div class="noiteBox">
+          <svg width="92" height="92" viewBox="0 0 32 32">
+            <!-- eclipse: coroa de ouro + crescente, tudo em traço -->
+            <circle cx="16" cy="16" r="11.6" fill="none" stroke="#D9B36A" stroke-width=".45" opacity=".45"/>
+            <circle cx="16" cy="16" r="8.8" fill="#D9B36A"/>
+            <circle cx="13.2" cy="16" r="8.2" fill="#191C33"/>
+            <circle cx="25.6" cy="7.6" r=".7" fill="#D9B36A" opacity=".8"/>
+            <circle cx="7" cy="24.2" r=".55" fill="#D9B36A" opacity=".55"/>
+          </svg>
+        </div>
+        <h3>B · Eclipse</h3>
+        <p>A lua cobrindo o sol, meia-luz em ouro. Sóbrio, geométrico,
+        atemporal — o mais discreto dos três.</p>
+      </div>
+
+      <div class="opt">
+        <div class="noiteBox">
+          <svg width="92" height="92" viewBox="0 0 32 32">
+            <rect x="8.5" y="4.5" width="15" height="23" rx="2.2" fill="none" stroke="#D9B36A" stroke-width="1"/>
+            <rect x="10.6" y="6.6" width="10.8" height="18.8" rx="1.2" fill="none" stroke="#D9B36A" stroke-width=".4" opacity=".6"/>
+            <path d="M16 11.4 l1.1 2.9 2.9 1.1 -2.9 1.1 -1.1 2.9 -1.1-2.9 -2.9-1.1 2.9-1.1z" fill="#D9B36A"/>
+            <circle cx="16" cy="22.6" r=".8" fill="#D9B36A" opacity=".7"/>
+          </svg>
+        </div>
+        <h3>C · A Carta</h3>
+        <p>Uma carta de tarô com a estrela dentro — o Arcano XVII, A Estrela:
+        esperança e renovação. O mais literal com o tarô.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Os sinais são fases da lua</h2>
+    <div class="card carta">
+      <table>
+        <tr><th style="width:210px">Sinal</th><th>Quando aparece</th></tr>
+        <tr><td><span class="sinal s-pode"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="currentColor"/></svg>Pode</span></td>
+            <td><b>Lua cheia.</b> O mês fecha, o fôlego passa de 45 dias, o prazer tem folga.
+            Vem com <i>"aproveita sem culpa"</i> — permissão também se diz.</td></tr>
+        <tr><td><span class="sinal s-calma"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.9a6.1 6.1 0 010 12.2z" fill="currentColor"/></svg>Vai com calma</span></td>
+            <td><b>Minguante.</b> O mês fecha, mas tem sinal aceso: prazer acima de 80%,
+            fôlego curto, rajada de compras, ou renda que não cobre metade do fixo.</td></tr>
+        <tr><td><span class="sinal s-nao"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Melhor não</span></td>
+            <td><b>Lua nova.</b> O mês não fecha, ou o teto do dia zerou.
+            Sempre com o motivo, nunca com bronca.</td></tr>
+      </table>
+      <p style="margin-top:18px;font-size:13px">A fase carrega o estado junto com a cor — quem não
+      distingue verde de vinho ainda lê a lua. E o rótulo escrito vem sempre.
+      <span style="color:var(--ouro-txt)">✦</span> <b>Não existe vermelho de alarme:</b> o pior sinal é vinho profundo. Susto não ensina
+      ninguém a gastar melhor.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cor — tinta, pergaminho e fio de ouro</h2>
+    <div class="g3">
+      <div class="cor"><div class="amostra" style="background:#191C33"></div><div class="txt">
+        <div class="nome">Noite</div><div class="hex">#191C33 · fundo #12142B</div>
+        <div class="uso">O céu. Vive na marca e no modo noite — que agora é literalmente o céu estrelado.</div></div></div>
+      <div class="cor"><div class="amostra" style="background:#2C3563"></div><div class="txt">
+        <div class="nome">Índigo</div><div class="hex">#2C3563</div>
+        <div class="uso">A tinta da interface: navegação, ação, gráfico. É quem trabalha.</div></div></div>
+      <div class="cor"><div class="amostra" style="background:#D9B36A"></div><div class="txt">
+        <div class="nome">Ouro</div><div class="hex">#D9B36A · texto #8A6420</div>
+        <div class="uso">A luz. Estrela, voz do riquinho, destaque. Sempre fio, nunca balde.</div></div></div>
+    </div>
+    <div class="g3" style="margin-top:20px">
+      <div class="cor"><div class="amostra" style="background:#F7F2E8;border-bottom:1px solid var(--linha)"></div><div class="txt">
+        <div class="nome">Pergaminho</div><div class="hex">#F7F2E8</div>
+        <div class="uso">O papel da carta celeste. Quente, com idade — nunca branco de laboratório.</div></div></div>
+      <div class="cor"><div class="amostra" style="background:#0A6E52"></div><div class="txt">
+        <div class="nome">Esmeralda</div><div class="hex">#0A6E52</div>
+        <div class="uso">Só "pode", sobra boa e conta paga. Reservada ao significado.</div></div></div>
+      <div class="cor"><div class="amostra" style="background:#7E3B47"></div><div class="txt">
+        <div class="nome">Vinho</div><div class="hex">#7E3B47</div>
+        <div class="uso">"Melhor não" e número negativo. O mais grave que existe aqui.</div></div></div>
+    </div>
+    <p style="margin-top:18px;font-size:13px">Contraste mínimo <b>4,5:1</b> em todo texto, nos dois temas.
+    A paleta dos gráficos foi validada pra daltonismo — e toda barra tem rótulo escrito do lado,
+    então a cor nunca trabalha sozinha.</p>
+  </section>
+
+  <section>
+    <h2>Tipografia — a gravura e o instrumento</h2>
+    <div class="card carta">
+      <div class="esp"><span class="rot">Cormorant Garamond<br>títulos & voz</span>
+        <span class="serif" style="font-size:34px;font-weight:600">Onde vai o dinheiro</span></div>
+      <div class="esp"><span class="rot">Sistema / tabular<br>todo número</span>
+        <span class="num" style="font-size:34px;font-weight:600;letter-spacing:-.02em">R$ 217,84</span></div>
+      <div class="esp"><span class="rot">Sistema 14<br>corpo</span>
+        <span>Listas, contas do mês, explicações curtas</span></div>
+      <div class="esp"><span class="rot">Sistema 12<br>rótulo</span>
+        <span style="font-size:12px;color:var(--tinta3)">Legenda, procedência do número, ✦ título de seção</span></div>
+      <p style="margin-top:18px"><b>A serifa é a gravura</b> — títulos, o nome da marca, a assinatura da voz.
+      <b>A sans é o instrumento</b> — todo número, toda lista, tudo que precisa ser lido rápido.
+      O místico nunca paga com legibilidade: dinheiro se lê em tabular, sempre.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Voz</h2>
+    <div class="fala">
+      <p>Dá pra gastar, mas o caixa segura 26 dias sem entrar nada. Fica de olho.</p>
+      <div class="assina">— riquinho</div>
+    </div>
+    <div class="card carta" style="margin-top:22px">
+      <div class="regra"><span class="mk">i</span><span><b>Uma linha.</b> Se precisa de três frases pra justificar, a decisão está errada.</span></div>
+      <div class="regra"><span class="mk">ii</span><span><b>Zero culpa.</b> Impulso é funcionamento do cérebro, não falha de caráter.</span></div>
+      <div class="regra"><span class="mk">iii</span><span><b>Nunca o óbvio.</b> Insight que sobrevive a um "e daí?" não entra na tela.</span></div>
+      <div class="regra"><span class="mk">iv</span><span><b>O número vem primeiro.</b> A explicação cabe atrás de um "abrir a conta".</span></div>
+      <div class="regra"><span class="mk">v</span><span><b>Categoria intocável nunca vira alerta.</b> Terreiro e saúde ficam fora do dedo em riste.</span></div>
+      <div class="regra"><span class="mk">vi</span><span><b>A voz é assinada.</b> Dado não se assina; leitura se assina — em itálico, com fio de ouro.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A régua da casa</h2>
+    <div class="card carta">
+      <p class="serif" style="font-size:24px;color:var(--tinta)">Dinheiro é abstrato. Tempo não é.</p>
+      <p style="margin-top:10px">Todo valor grande vem traduzido em <b>dias de casa paga</b> —
+      hoje, <b class="num">R$ 130,28 por dia</b>.</p>
+      <table style="margin-top:18px">
+        <tr><th>Em vez de</th><th>O painel diz</th></tr>
+        <tr><td>R$ 184,00 em rolês num sábado</td><td><b>1,4 dia de casa paga</b></td></tr>
+        <tr><td>R$ 1.686,87 em ferramentas</td><td><b>13 dias de casa paga</b></td></tr>
+        <tr><td>R$ 2.398,80 de bike por ano</td><td><b>18 dias de casa paga</b></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Detalhes que carregam o tema</h2>
+    <div class="g2">
+      <div class="card"><h3>As telas são arcanos</h3><p>I Hoje · II A pagar · III Fluxo · IV Onde vai ·
+      V Comprometido · VI Saúde. Numerais romanos em itálico dourado na navegação, como numa carta.</p></div>
+      <div class="card"><h3>A carta do dia</h3><p>O bloco principal de Hoje tem moldura dupla de carta de
+      tarô e uma constelação em fio de ouro no canto — presente, mas quieta.</p></div>
+      <div class="card"><h3>✦ como marcador</h3><p>Toda seção abre com a estrelinha de ouro.
+      É o único ornamento repetido — ornamento que se repete demais vira papel de parede.</p></div>
+      <div class="card"><h3>O modo noite é o céu</h3><p>O tema escuro não é um cinza qualquer:
+      é o índigo profundo da noite, com o ouro das estrelas por cima.</p></div>
+    </div>
+  </section>
+
+  <p class="rodape">riquinho · identidade v3 — carta celeste · 17 de agosto de 2026<br>
+  <span class="serif">"a estrada é longa, mas tem estrela em cima."</span></p>
+</div>
+</body>
+</html>
