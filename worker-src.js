@@ -198,7 +198,11 @@ async function montarDados(env) {
   });
 
   // Contas a pagar / a receber ainda em aberto (não pagas), em conta bancária.
-  const limite = iso(addMeses(hoje, 2));
+  // ⚠️ ESTE LIMITE E O HORIZONTE DE projetar() ANDAM JUNTOS. Se aqui for menor,
+  // o fim da linha do saldo fica artificialmente otimista: as faturas continuam
+  // aparecendo (vêm de outra consulta, 6 meses), mas as contas de Pix/boleto somem.
+  // projetar() olha 92 dias — então aqui são 3 meses. Mexeu num, mexe no outro.
+  const limite = iso(addMeses(hoje, 3));
   const aPagar = [], aReceber = [];
   for (const t of lanc) {
     if (t.paid || t.account_type === "CreditCard") continue;

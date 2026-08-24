@@ -323,6 +323,27 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+/* ── A TIRAGEM DO DIA ──────────────────────────────────────────
+   Três cartas na abertura: onde você está · o que se aproxima · o conselho.
+   Existe pra matar o scroll atrás do que importa. */
+.tiragem{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:12px}
+.tira{
+  background:var(--sf);border:1px solid var(--line);border-radius:10px;
+  padding:15px 16px 16px;display:flex;flex-direction:column;gap:3px;
+}
+.tira .rot{
+  font-family:var(--fonte-num);font-size:10px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.16em;color:var(--ouro-txt);
+}
+.tira .val{
+  font-family:var(--fonte-num);font-size:clamp(19px,3.2vw,25px);font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;margin-top:2px;
+}
+.tira .txt{font-size:13px;color:var(--ink2);line-height:1.5;margin-top:3px}
+.tira .sub{font-family:var(--fonte-num);font-size:11px;color:var(--ink3);letter-spacing:.02em;margin-top:2px}
+.tira.conselho{border-color:var(--line2);background:var(--terracota-soft)}
+.tira.conselho .val{color:var(--terracota)}
+
 /* ── O ECLIPSE ─────────────────────────────────────────────────
    O dia em que o dinheiro acaba. Vinho, nunca vermelho de alarme:
    a régua da casa continua valendo — susto não ensina a gastar melhor. */
@@ -537,6 +558,11 @@ svg.g{display:block;width:100%;overflow:visible}
     <!-- ---------- TELA: HOJE ---------- -->
     <section class="tela" id="tela-hoje">
       <p class="escopo" id="hEscopo"></p>
+
+      <div class="bloco">
+        <div class="tiragem" id="hTiragem"></div>
+      </div>
+
       <div class="bloco">
         <div class="heroi">
           <div>
@@ -917,8 +943,78 @@ function recalcular(){
      separado do "hoje" pra nunca misturar as duas leituras. */
   c.sel = calcularMes(ESTADO.mes || ym(ano,mes), c);
 
+  /* A TIRAGEM DO DIA — depende de c.sel e c.eclipse, por isso nasce por último. */
+  c.conselho = conselhoDoDia(c);
+
   CALC = c;
   window.__numerosDoPainel = c; // pra conferência externa
+}
+
+/* O CONSELHO DO DIA — a terceira carta da tiragem.
+   Escolhe UMA coisa só, por ordem de urgência. A regra é dura de propósito:
+   se tudo é importante, nada é — e ele para de ler. Nunca cobra, nunca acusa;
+   quando não há nada urgente, comemora ou ensina. */
+function conselhoDoDia(c){
+  var hoje = DADOS.hoje, hojeD = D(hoje);
+  function dias(isoStr){ return Math.round((D(isoStr) - hojeD) / 86400000); }
+
+  // 1. Fatura fechando com o mês estourado — é a janela mais cara de perder.
+  var maior = null;
+  (DADOS.faturas || []).forEach(function(f){
+    if (f.status !== "emFormacao" || f.congelada) return;
+    if (!maior || Math.abs(f.saldoCents) > Math.abs(maior.saldoCents)) maior = f;
+  });
+  if (maior && c.mesFecha === false){
+    var cart = (DADOS.cartoes || []).find(function(x){ return x.id === maior.cartaoId; });
+    if (cart){
+      var f1 = new Date(hojeD); f1.setDate(cart.fechamento);
+      if (f1 < hojeD) f1.setMonth(f1.getMonth() + 1);
+      var ate = dias(iso(f1));
+      if (ate <= 12) return {
+        rot: "A janela", val: "fecha em " + (ate === 0 ? "hoje" : ate + (ate === 1 ? " dia" : " dias")),
+        txt: "A fatura do " + cart.nome + " fecha dia " + cart.fechamento + " com " +
+             C(Math.abs(maior.saldoCents)) + ". Depois que fechar, parcelar só vale até o vencimento — é a única janela."
+      };
+    }
+  }
+
+  // 2. Conta vencendo hoje ou amanhã.
+  var proxima = (DADOS.aPagar || []).find(function(p){ return dias(p.data) >= 0 && dias(p.data) <= 1; });
+  if (proxima) return {
+    rot: "Vence " + (dias(proxima.data) === 0 ? "hoje" : "amanhã"),
+    val: C(Math.abs(proxima.cents)),
+    txt: proxima.desc + (proxima.conta ? " · " + proxima.conta : "") + ". Entre atrasar Pix e atrasar cartão, o cartão nunca atrasa."
+  };
+
+  // 3. O zero chegando em qualquer ponto do horizonte.
+  //    ⚠️ ESTA REGRA VEM ANTES DE COMEMORAR O MÊS DE PROPÓSITO. O mês corrente
+  //    pode fechar redondo enquanto o seguinte afunda — foi o que aconteceu em
+  //    agosto/2026, com agosto fechando e setembro a −R$ 11.937,96. Comemorar
+  //    ali seria a mentira confortável que o plano proíbe.
+  if (c.eclipse && c.eclipse.negativa){
+    var n = c.eclipse.diasAteCruzar;
+    return {
+      rot: n <= 10 ? "O zero se aproxima" : "O zero, mais à frente",
+      val: n <= 0 ? "hoje" : "em " + n + (n === 1 ? " dia" : " dias"),
+      txt: "A linha cruza o zero em " + c.eclipse.cruzaEm.slice(8,10) + "/" + c.eclipse.cruzaEm.slice(5,7) +
+           (n <= 10 ? ". Dá tempo de escolher o que empurra e o que não empurra."
+                    : ". Ainda dá pra mudar esse desenho com calma — e é agora que sai mais barato.")
+    };
+  }
+
+  // 4. O mês fecha E não tem zero no horizonte. Aí sim é notícia boa de verdade.
+  if (c.mesFecha) return {
+    rot: "O mês fecha", val: "sozinho",
+    txt: "Sem plano, sem remendo, sem parcelar nada — e nenhum zero no horizonte de 3 meses. Era exatamente isso que você disse que queria de todo mês."
+  };
+
+  // 5. Nada urgente: a régua do dia.
+  return {
+    rot: "O teto de hoje", val: C(c.tetoDiaCents),
+    txt: c.casaDiaCents > 0
+      ? "Sua casa custa " + C(c.casaDiaCents) + " por dia. Hoje não tem nada vencendo — o dia é seu."
+      : "Hoje não tem nada vencendo."
+  };
 }
 
 /* O ECLIPSE — onde a linha do saldo cruza o zero, e onde ela chega no fundo.
@@ -1130,7 +1226,9 @@ function projetar(){
      dela. O buraco real era −R$ 11.937,96, no último dia do mês.
      O worker já traz lançamento de até 6 meses à frente; quem truncava era
      este laço. 92 dias cobre o mês corrente inteiro mais os dois seguintes.
-     Nunca mais encurtar isto sem conferir onde cai o menor saldo.        */
+     Nunca mais encurtar isto sem conferir onde cai o menor saldo.
+     ⚠️ AMARRADO ao `limite` de aPagar no worker-src.js (3 meses). Se lá for
+     menor que aqui, o fim da linha fica otimista e mente de novo.        */
   for (var i=0;i<92;i++){
     var dia = new Date(d.getTime() + i*86400000), k = iso(dia);
     if (mapa[k]) saldo += mapa[k];
@@ -1381,6 +1479,7 @@ function renderHoje(){
   el("hPorque").innerHTML = sm.fala;
 
   // A régua da casa: dinheiro vira tempo, e tempo ele entende na hora.
+  renderTiragem(c);
   renderEclipse(c);
 
   var dias = emDiasDeCasa(c.tetoDiaCents, c.casaDiaCents);
@@ -1438,6 +1537,48 @@ function renderHoje(){
       "<td class='dim'>" + esc(l.cat) + "</td>" +
       "<td class='r'>" + C(l.cents) + "</td></tr>";
   }).join("") + "</tbody>";
+}
+
+/* A TIRAGEM DO DIA na tela. Sempre três cartas, sempre na mesma ordem —
+   é isso que deixa ele achar o número sem procurar. */
+function renderTiragem(c){
+  var no = el("hTiragem"); if (!no) return;
+  var prox = c.sel && c.sel.proxima ? c.sel.proxima : null;
+  var q = c.conselho || {};
+
+  function dias(isoStr){
+    return Math.round((D(isoStr) - D(DADOS.hoje)) / 86400000);
+  }
+  function quando(isoStr){
+    var n = dias(isoStr);
+    if (n <= 0) return "hoje";
+    if (n === 1) return "amanhã";
+    return "em " + n + " dias";
+  }
+
+  no.innerHTML =
+    '<div class="tira">' +
+      '<span class="rot">Onde você está</span>' +
+      '<span class="val">' + C(c.caixaCents) + '</span>' +
+      '<span class="txt">Todo o dinheiro que existe agora, em ' + DADOS.contas.length +
+        (DADOS.contas.length === 1 ? " conta" : " contas") + '. Sem promessa dentro.</span>' +
+    '</div>' +
+
+    '<div class="tira">' +
+      '<span class="rot">O que se aproxima</span>' +
+      (prox
+        ? '<span class="val">' + C(Math.abs(prox.cents)) + '</span>' +
+          '<span class="txt">' + esc(prox.desc) + '</span>' +
+          '<span class="sub">' + quando(prox.data) + ' · ' + prox.data.slice(8,10) + "/" + prox.data.slice(5,7) + '</span>'
+        : '<span class="val">nada</span>' +
+          '<span class="txt">Nenhuma conta em aberto no mês. Respira.</span>') +
+    '</div>' +
+
+    '<div class="tira conselho">' +
+      '<span class="rot">' + esc(q.rot || "O conselho de hoje") + '</span>' +
+      '<span class="val">' + esc(q.val || "—") + '</span>' +
+      '<span class="txt">' + esc(q.txt || "") + '</span>' +
+    '</div>';
 }
 
 /* O ECLIPSE na tela. Duas leituras possíveis, nunca uma bronca:
