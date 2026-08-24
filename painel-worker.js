@@ -707,6 +707,16 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+/* ── O SELO ────────────────────────────────────────────────────
+   Carimbo de cera. Fica torto de propósito: carimbo reto parece badge
+   de gamificação, e isso é a última coisa que este painel quer ser. */
+.selo-caixa{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.selo{flex:0 0 auto;transform:rotate(-7deg);color:var(--ouro)}
+.selo-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.selo-txt .t{font-family:var(--fonte-display);font-size:22px;font-weight:600;line-height:1.15}
+.selo-txt .s{font-size:13.5px;color:var(--ink2);line-height:1.5}
+.selo-txt .h{font-family:var(--fonte-num);font-size:11px;color:var(--ink3);letter-spacing:.04em;margin-top:4px}
+
 /* ── A TIRAGEM DO DIA ──────────────────────────────────────────
    Três cartas na abertura: onde você está · o que se aproxima · o conselho.
    Existe pra matar o scroll atrás do que importa. */
@@ -1011,6 +1021,10 @@ svg.g{display:block;width:100%;overflow:visible}
           <span id="pProgTxt"></span>
           <button class="tab" id="pLimpar">desmarcar tudo</button>
         </div>
+      </div>
+
+      <div class="bloco" id="pSeloBloco" hidden>
+        <div class="selo-caixa" id="pSelo"></div>
       </div>
 
       <div id="pAviso"></div>
@@ -1587,6 +1601,32 @@ function calcularMes(y, c){
 }
 
 var CHAVE_PAGOS = "painel:pagos:";
+/* O SELO — o carimbo de mês que fechou sozinho.
+   Ele existe porque a meta declarada do Michel é literalmente "nunca mais ter
+   plano; eu devo sempre conseguir fechar as contas do mês". Meta sem marco
+   visível vira meta esquecida — então quando um mês fecha inteiro, ele carimba
+   e o carimbo fica. Guardado em localStorage: é conquista dele, não do Organizze. */
+var CHAVE_SELOS = "riquinho:selos";
+
+function lerSelos(){
+  try { return JSON.parse(localStorage.getItem(CHAVE_SELOS) || "{}"); } catch(e){ return {}; }
+}
+function gravarSelo(y){
+  try {
+    var s = lerSelos();
+    if (s[y]) return false;              // já carimbado — não recarimba
+    s[y] = DADOS.hoje;                   // fica a data em que fechou
+    localStorage.setItem(CHAVE_SELOS, JSON.stringify(s));
+    return true;
+  } catch(e){ return false; }
+}
+
+/* Um mês só ganha selo quando TODAS as contas dele estão quitadas.
+   Mês sem conta nenhuma não conta — senão o carimbo vira enfeite barato. */
+function mereceSelo(m){
+  return !!(m && m.qtd > 0 && m.qtdPagas === m.qtd);
+}
+
 function lerPagos(y){
   try { return JSON.parse(localStorage.getItem(CHAVE_PAGOS + y) || "[]"); } catch(e){ return []; }
 }
@@ -1803,8 +1843,46 @@ function mesesDisponiveis(){
 }
 
 /* --------------------------------------------------------- TELA: A PAGAR -- */
+/* O SELO DO MÊS — o carimbo de mês que fechou sozinho.
+   Só aparece quando o mês está inteiro quitado, e conta quantos já fecharam
+   assim: é a sequência que dá sentido ao carimbo isolado.
+
+   ⚠️ O NOME TEM SUFIXO POR CAUSA DE UM ERRO MEU. Eu chamei esta função de
+   \`renderSelo\` e ela SOBRESCREVEU a renderSelo() que já existia — a do selo de
+   procedência do topo, que avisa quando o dado veio do cache. Duas declarações
+   com o mesmo nome não dão erro nenhum em JS: a última cala a primeira, e o
+   aviso de cache sumiria sem ninguém notar.
+   Antes de criar função nova aqui: grep -n "^function nome" index.html         */
+function renderSeloMes(m){
+  var bloco = el("pSeloBloco"), node = el("pSelo");
+  if (!bloco || !node) return;
+  if (!mereceSelo(m)) { bloco.hidden = true; return; }
+
+  gravarSelo(m.ym);
+  var total = Object.keys(lerSelos()).length;
+  bloco.hidden = false;
+
+  node.innerHTML =
+    '<svg class="selo" width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">' +
+      '<circle cx="38" cy="38" r="33" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>' +
+      '<circle cx="38" cy="38" r="28" fill="none" stroke="currentColor" stroke-width=".8" opacity=".35"/>' +
+      '<path d="M38 16 L42.2 33.4 L59 26.2 L51.6 41.6 L59 57 L42.2 49.8 L38 67 L33.8 49.8 L17 57 L24.4 41.6 L17 26.2 L33.8 33.4 Z" ' +
+        'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>' +
+      '<circle cx="38" cy="41.6" r="2.6" fill="currentColor"/>' +
+    '</svg>' +
+    '<div class="selo-txt">' +
+      '<span class="t">' + rotuloMes(m.ym) + ' fechou.</span>' +
+      '<span class="s">' + m.qtd + (m.qtd === 1 ? " conta paga" : " contas pagas") + ', ' +
+        C(m.totalCents) + ' no total. Sem plano, sem remendo, sem parcelar nada.</span>' +
+      '<span class="h">' + (total === 1 ? "primeiro mês carimbado"
+                                        : total + " meses carimbados até aqui") + '</span>' +
+    '</div>';
+}
+
 function renderPagar(){
   var m = CALC.sel;
+
+  renderSeloMes(m);
 
   el("pEscopo").textContent = "Contas que vencem em " + m.rotulo +
     (m.corrente ? " · hoje é dia " + CALC.diaDoMes : "");
@@ -2217,9 +2295,60 @@ function linhaSaldo(svg, pts){
              " L" + x(0).toFixed(1) + " " + y(Math.max(0,min)).toFixed(1) + " Z";
   h += '<path class="area" d="'+area+'"/><path class="linha" d="'+d+'"/>';
 
+  /* ── A EFEMÉRIDE ────────────────────────────────────────────
+     Antes isto era só uma linha com um ponto no fundo do poço. Faltava o
+     que uma efeméride tem e um gráfico de fintech não tem: os MARCOS. Sem
+     eles, o Michel via a linha cair e não sabia no que ela tropeçou. */
+
+  /* Os maiores movimentos viram marcos com haste e rótulo.
+     ⚠️ O ESPAÇAMENTO NÃO É FRESCURA. Na primeira versão eu peguei os cinco
+     maiores e pronto — dois deles caíram a três dias de distância e os rótulos
+     se sobrepuseram, virando "−2,5k5,8k" em cima do gráfico. Rótulo ilegível é
+     pior que rótulo nenhum, porque o olho tenta ler e trava.
+     Regra: dos candidatos ordenados por tamanho, só entra quem estiver a pelo
+     menos GAP px do que já entrou. O maior sempre ganha o lugar. */
+  var GAP = 52;
+  var marcos = [];
+  pts.map(function(p,i){ return {p:p, i:i}; })
+    .filter(function(o){ return Math.abs(o.p.evento||0) > 0; })
+    .sort(function(a,b){ return Math.abs(b.p.evento) - Math.abs(a.p.evento); })
+    .forEach(function(o){
+      if (marcos.length >= 5) return;
+      var xo = x(o.i);
+      var perto = marcos.some(function(m){ return Math.abs(x(m.i) - xo) < GAP; });
+      if (!perto) marcos.push(o);
+    });
+  marcos.sort(function(a,b){ return a.i - b.i; });
+
+  var mnIdx = pts.reduce(function(a,b,i){ return b.saldo < pts[a].saldo ? i : a; }, 0);
+  marcos = marcos.filter(function(o){ return Math.abs(x(o.i) - x(mnIdx)) >= GAP; });
+
+  marcos.forEach(function(o){
+    var xx = x(o.i), yy = y(o.p.saldo);
+    h += '<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+yy.toFixed(1)+
+         '" stroke="var(--ouro)" stroke-width="1" opacity=".38"/>';
+    h += '<circle cx="'+xx.toFixed(1)+'" cy="'+yy.toFixed(1)+'" r="3" fill="var(--ouro)"/>';
+    h += '<text class="eixo" x="'+xx.toFixed(1)+'" y="'+(T-3)+'" text-anchor="middle" fill="var(--ouro-txt)">'+
+         Ck(o.p.evento)+'</text>';
+  });
+
+  /* O ECLIPSE — disco escuro com anel de ouro, não bolinha vermelha.
+     É o mesmo símbolo da tela Hoje: o mesmo fato merece a mesma cara
+     nos dois lugares, senão ele precisa aprender duas linguagens. */
   var mn = pts.reduce(function(a,b,i){ return b.saldo < a.p.saldo ? {p:b,i:i} : a; }, {p:pts[0],i:0});
-  h += '<circle class="pt" cx="'+x(mn.i).toFixed(1)+'" cy="'+y(mn.p.saldo).toFixed(1)+'" r="4.5" style="fill:var(--crit)"/>';
-  h += '<text x="'+x(mn.i).toFixed(1)+'" y="'+(y(mn.p.saldo)-12).toFixed(1)+'" text-anchor="middle" fill="var(--crit)" font-size="11" font-weight="600">'+Ck(mn.p.saldo)+"</text>";
+  var ex = x(mn.i), ey = y(mn.p.saldo), neg = mn.p.saldo < 0;
+  if (neg){
+    h += '<circle cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="7" fill="var(--noite)"/>';
+    h += '<circle cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="7" fill="none" stroke="var(--ouro)" stroke-width="1.8"/>';
+  } else {
+    h += '<circle class="pt" cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="4.5" style="fill:var(--good)"/>';
+  }
+  h += '<text x="'+ex.toFixed(1)+'" y="'+(ey+ (ey < T+40 ? 24 : -14)).toFixed(1)+
+       '" text-anchor="middle" fill="'+(neg ? "var(--crit)" : "var(--good)")+
+       '" font-size="11" font-weight="600">'+Ck(mn.p.saldo)+"</text>";
+  if (neg)
+    h += '<text class="eixo" x="'+ex.toFixed(1)+'" y="'+(ey + (ey < T+40 ? 37 : -27)).toFixed(1)+
+         '" text-anchor="middle" fill="var(--ouro-txt)">eclipse '+mn.p.data.slice(8,10)+"/"+mn.p.data.slice(5,7)+"</text>";
 
   for (var i=0;i<pts.length;i+=5){
     h += '<text class="eixo" x="'+x(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+pts[i].data.slice(8,10)+"/"+pts[i].data.slice(5,7)+"</text>";
