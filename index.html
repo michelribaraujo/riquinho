@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="%2312142B"/><path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z" fill="none" stroke="%23D9B36A" stroke-width="1.1" stroke-linejoin="round"/><circle cx="16" cy="16" r="1.3" fill="%23D9B36A"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    1. TOKENS — uma régua só. Degrau só existe se for visível.
@@ -19,6 +19,9 @@
   --r-card:16px; --r-chip:9px; --r-pill:999px;
   --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
   --fonte-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  /* números vão em Plex Mono: é a fonte de tabela de efeméride, e resolve
+     alinhamento de coluna de graça. Fallback sempre monoespaçado. */
+  --fonte-num: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --rail:212px;
   --dur:.18s;
 }
@@ -34,6 +37,7 @@ html[data-tema="claro"]{
   --acc:#2C3563; --acc-ink:#F7F2E8; --acc-soft:rgba(44,53,99,.07);
   --indigo:#2C3563; --indigo-vivo:#414E8F; --noite:#191C33;
   --ouro:#C0913A; --ouro-luz:#D9B36A; --ouro-txt:#8A6420;
+  --terracota:#B0603F; --terracota-soft:rgba(176,96,63,.10);
   --good:#0A6E52; --warn:#8A6420; --serious:#8A6420; --crit:#7E3B47;
   --good-soft:rgba(10,110,82,.10); --crit-soft:rgba(126,59,71,.10); --warn-soft:rgba(138,100,32,.11);
   --s1:#5668d6; --s2:#c0913a; --s3:#a86fd0; --s4:#3fae8a; --s5:#c96a55; --s6:#2f9fbf;
@@ -49,6 +53,7 @@ html[data-tema="escuro"]{
   --acc:#8D9BE8; --acc-ink:#12142B; --acc-soft:rgba(141,155,232,.14);
   --indigo:#8D9BE8; --indigo-vivo:#414E8F; --noite:#0C0E20;
   --ouro:#D9B36A; --ouro-luz:#E8CC93; --ouro-txt:#D9B36A;
+  --terracota:#CE8058; --terracota-soft:rgba(206,128,88,.16);
   --good:#4BC79A; --warn:#D9B36A; --serious:#D9B36A; --crit:#D98A97;
   --good-soft:rgba(75,199,154,.13); --crit-soft:rgba(217,138,151,.13); --warn-soft:rgba(217,179,106,.13);
   --s1:#8d9be8; --s2:#d9b36a; --s3:#bd93e0; --s4:#4bc79a; --s5:#d98a76; --s6:#5fb8d6;
@@ -177,7 +182,7 @@ a{color:inherit}
   pointer-events:none;z-index:0;color:var(--ouro);opacity:.5}
 html[data-tema="escuro"] .constel{opacity:.8;color:var(--ouro-luz)}
 .heroi .rot{font-size:var(--t-micro);color:var(--ink2);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
-.heroi .val{font-size:var(--t-heroi);font-weight:600;line-height:1.02;margin:6px 0 10px}
+.heroi .val{font-family:var(--fonte-num);font-size:var(--t-heroi);font-weight:600;line-height:1.02;margin:6px 0 10px;font-variant-numeric:tabular-nums}
 .heroi .val.ruim{color:var(--crit)}
 .heroi .val.bom{color:var(--ink)}
 .heroi .porque{font-size:var(--t-corpo);color:var(--ink2);max-width:44ch}
@@ -191,7 +196,7 @@ html[data-tema="escuro"] .constel{opacity:.8;color:var(--ouro-luz)}
 .faixa.c2{grid-template-columns:repeat(2,1fr)}
 .cel{background:var(--sf);padding:var(--e4) var(--e4)}
 .cel .rot{font-size:var(--t-micro);color:var(--ink2);display:flex;align-items:center;gap:5px}
-.cel .val{font-size:var(--t-num);font-weight:600;letter-spacing:-.02em;margin-top:6px;line-height:1.1;white-space:nowrap}
+.cel .val{font-family:var(--fonte-num);font-size:var(--t-num);font-weight:600;letter-spacing:-.02em;margin-top:6px;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cel .pe{font-size:var(--t-micro);color:var(--ink3);margin-top:4px}
 .cel .val.ruim{color:var(--crit)} .cel .val.bom{color:var(--good)} .cel .val.atencao{color:var(--warn)}
 
@@ -318,6 +323,31 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+/* ── O ECLIPSE ─────────────────────────────────────────────────
+   O dia em que o dinheiro acaba. Vinho, nunca vermelho de alarme:
+   a régua da casa continua valendo — susto não ensina a gastar melhor. */
+.eclipse{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:16px 18px;border:1px solid var(--line2);border-radius:10px;
+  background:var(--crit-soft);
+}
+.eclipse.azul{background:var(--good-soft)}
+.eclipse .disco{flex:0 0 auto}
+.eclipse .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eclipse .rot{
+  font-family:var(--fonte-num);font-size:10.5px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.16em;color:var(--ouro-txt);
+}
+.eclipse .val{
+  font-family:var(--fonte-num);font-size:clamp(22px,4.4vw,30px);font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;color:var(--crit);
+}
+.eclipse.azul .val{color:var(--good)}
+.eclipse .quando{font-size:13.5px;color:var(--ink2);line-height:1.5}
+.eclipse .quando b{color:var(--ink);font-weight:600}
+.eclipse .casa{
+  font-family:var(--fonte-num);font-size:11.5px;color:var(--terracota);letter-spacing:.02em;
+}
 .tarocarta .arcano{font-family:var(--fonte-display);font-style:italic;font-size:14px;color:var(--ouro-txt)}
 .tarocarta .estrela{margin:12px auto 10px;display:block;width:44px;height:44px;color:var(--ouro)}
 .tarocarta h3{font-family:var(--fonte-display);font-size:24px;font-weight:600;margin-bottom:8px}
@@ -528,6 +558,10 @@ svg.g{display:block;width:100%;overflow:visible}
             </g>
           </svg>
         </div>
+      </div>
+
+      <div class="bloco" id="hEclipseBloco" hidden>
+        <div class="eclipse" id="hEclipse"></div>
       </div>
 
       <div class="bloco">
@@ -854,7 +888,7 @@ function recalcular(){
   /* FÔLEGO — simulação mês a mês, não média. Média mente quando um mês tem duas faturas. */
   c.folegoDias = folego(c.caixaCents, c.compromissosCents, c.recorrenteCents, c.diasRestantes);
 
-  /* SALDO PROJETADO DIA A DIA (30 dias) */
+  /* SALDO PROJETADO DIA A DIA (92 dias — ver comentário em projetar()) */
   c.serieSaldo = projetar();
 
   /* CATEGORIAS com Δ contra a média dos 3 meses anteriores */
@@ -866,6 +900,12 @@ function recalcular(){
   /* CUSTO DA CASA POR DIA — a régua que ele entende melhor que qualquer gráfico:
      traduzir gasto em "dias de casa paga". Moradia + contas de casa ÷ 30. */
   c.casaDiaCents = Math.round((c.fixasCents + c.variaveisCents) / 30);
+
+  /* O ECLIPSE — o dia em que a linha do saldo cruza o zero, e o fundo do poço.
+     Este é o número mais importante do painel: é o único que responde "até
+     quando eu aguento". Ficava escondido numa célula da tela Mês; agora nasce
+     aqui e aparece na tela Hoje. */
+  c.eclipse = calcularEclipse(c.serieSaldo, c.casaDiaCents);
 
   /* SEMÁFORO — pode · calma · melhor não. É a resposta na hora da vontade de comprar. */
   c.semaforo = semaforo(c);
@@ -879,6 +919,27 @@ function recalcular(){
 
   CALC = c;
   window.__numerosDoPainel = c; // pra conferência externa
+}
+
+/* O ECLIPSE — onde a linha do saldo cruza o zero, e onde ela chega no fundo.
+   Devolve null quando o horizonte inteiro fica no azul: nesse caso não existe
+   eclipse pra anunciar, e anunciar um seria inventar susto. */
+function calcularEclipse(serie, casaDia){
+  if (!serie || !serie.length) return null;
+  var fundo = serie.reduce(function(a,b){ return b.saldo < a.saldo ? b : a; }, serie[0]);
+  var cruz = null;
+  for (var i=0;i<serie.length;i++){ if (serie[i].saldo < 0) { cruz = serie[i]; break; } }
+  var hoje = D(DADOS.hoje);
+  function dias(isoStr){ return Math.round((D(isoStr) - hoje) / 86400000); }
+  return {
+    negativa: !!cruz,
+    cruzaEm: cruz ? cruz.data : null,
+    diasAteCruzar: cruz ? dias(cruz.data) : null,
+    fundoEm: fundo.data,
+    fundoCents: fundo.saldo,
+    diasAteFundo: dias(fundo.data),
+    casa: fundo.saldo < 0 ? emDiasDeCasa(Math.abs(fundo.saldo), casaDia) : ""
+  };
 }
 
 /* Quantos dias de casa paga cabem num valor. Devolve string curta ou "" quando não vale a pena dizer. */
@@ -1063,7 +1124,14 @@ function projetar(){
   DADOS.faturas.forEach(function(f){
     if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada) por(f.vencimento, f.saldoCents);
   });
-  for (var i=0;i<31;i++){
+  /* ⚠️ HORIZONTE — já foi 31 dias, e isso ESCONDIA o fundo do poço.
+     Em 20/08/2026 o painel anunciava o menor saldo em 14/09 (−R$ 10.735,23)
+     porque a janela acabava em 19/09 — e o DAS + PGFN de 30/09 caíam fora
+     dela. O buraco real era −R$ 11.937,96, no último dia do mês.
+     O worker já traz lançamento de até 6 meses à frente; quem truncava era
+     este laço. 92 dias cobre o mês corrente inteiro mais os dois seguintes.
+     Nunca mais encurtar isto sem conferir onde cai o menor saldo.        */
+  for (var i=0;i<92;i++){
     var dia = new Date(d.getTime() + i*86400000), k = iso(dia);
     if (mapa[k]) saldo += mapa[k];
     pts.push({ data:k, saldo:saldo, evento: mapa[k]||0 });
@@ -1313,6 +1381,8 @@ function renderHoje(){
   el("hPorque").innerHTML = sm.fala;
 
   // A régua da casa: dinheiro vira tempo, e tempo ele entende na hora.
+  renderEclipse(c);
+
   var dias = emDiasDeCasa(c.tetoDiaCents, c.casaDiaCents);
   el("hCasa").textContent = c.casaDiaCents > 0
     ? "Sua casa custa " + C(c.casaDiaCents) + " por dia" + (dias ? " · o teto de hoje vale " + dias : "")
@@ -1368,6 +1438,50 @@ function renderHoje(){
       "<td class='dim'>" + esc(l.cat) + "</td>" +
       "<td class='r'>" + C(l.cents) + "</td></tr>";
   }).join("") + "</tbody>";
+}
+
+/* O ECLIPSE na tela. Duas leituras possíveis, nunca uma bronca:
+   - a linha cruza o zero  → mostra QUANDO e QUANTO, com a régua da casa
+   - a linha nunca cruza   → diz isso, que é notícia boa e merece ser dita */
+function renderEclipse(c){
+  var e = c.eclipse, bloco = el("hEclipseBloco"), node = el("hEclipse");
+  if (!e) { bloco.hidden = true; return; }
+  bloco.hidden = false;
+
+  function dataCurta(isoStr){ return isoStr.slice(8,10) + "/" + isoStr.slice(5,7); }
+  function emQuantos(n){
+    if (n <= 0) return "hoje";
+    if (n === 1) return "amanhã";
+    return "em " + n + " dias";
+  }
+
+  if (!e.negativa){
+    node.className = "eclipse azul";
+    node.innerHTML =
+      '<svg class="disco" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">' +
+        '<circle cx="23" cy="23" r="17" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/>' +
+        '<circle cx="23" cy="23" r="17" fill="currentColor" opacity=".22"/></svg>' +
+      '<div class="txt">' +
+        '<span class="rot">Sem eclipse no horizonte</span>' +
+        '<span class="val">' + C(e.fundoCents) + '</span>' +
+        '<span class="quando">É o ponto mais baixo dos próximos 3 meses, em <b>' +
+          dataCurta(e.fundoEm) + '</b> — e ele não cruza o zero.</span>' +
+      '</div>';
+    return;
+  }
+
+  node.className = "eclipse";
+  node.innerHTML =
+    '<svg class="disco" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">' +
+      '<circle cx="23" cy="23" r="17" fill="var(--noite, #191C33)"/>' +
+      '<circle cx="23" cy="23" r="17" fill="none" stroke="var(--ouro)" stroke-width="1.8"/></svg>' +
+    '<div class="txt">' +
+      '<span class="rot">Eclipse · ' + dataCurta(e.fundoEm) + '</span>' +
+      '<span class="val">' + C(e.fundoCents) + '</span>' +
+      '<span class="quando">A linha cruza o zero <b>' + emQuantos(e.diasAteCruzar) +
+        '</b>, em ' + dataCurta(e.cruzaEm) + ', e chega no fundo ' + emQuantos(e.diasAteFundo) + '.</span>' +
+      (e.casa ? '<span class="casa">o buraco vale ' + e.casa + '</span>' : "") +
+    '</div>';
 }
 
 function fmtFolego(dias){
@@ -1493,8 +1607,10 @@ function renderMes(){
     { rot:"Entra no mês",  val:C(c.rendaMesCents),  pe:"já sem transferência interna" },
     { rot:"Sai no mês",    val:C(c.gastoMesCents),  pe:"até hoje" },
     { rot:"Fatura em aberto", val:C(c.faturaAbertaCents), pe:c.faturasAbertas.length + " faturas" },
-    { rot:"Menor saldo previsto", val:C(menorSaldo().saldo), pe:menorSaldo().data.slice(8,10)+"/"+menorSaldo().data.slice(5,7),
-      cls: menorSaldo().saldo < 0 ? "ruim" : "" }
+    /* mesmo número do Eclipse da tela Hoje — uma verdade só, nascida em recalcular() */
+    { rot:"Menor saldo previsto", val:C(c.eclipse.fundoCents),
+      pe:c.eclipse.fundoEm.slice(8,10)+"/"+c.eclipse.fundoEm.slice(5,7),
+      cls: c.eclipse.fundoCents < 0 ? "ruim" : "" }
   ]);
 
   linhaSaldo(el("mLinha"), c.serieSaldo);
