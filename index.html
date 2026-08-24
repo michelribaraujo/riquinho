@@ -958,23 +958,39 @@ function conselhoDoDia(c){
   var hoje = DADOS.hoje, hojeD = D(hoje);
   function dias(isoStr){ return Math.round((D(isoStr) - hojeD) / 86400000); }
 
-  // 1. Fatura fechando com o mês estourado — é a janela mais cara de perder.
+  // 1. A JANELA — a fatura em formação fechando sem caber no caixa.
+  //
+  //    ⚠️ ESTA CONDIÇÃO JÁ ESTEVE ERRADA. Eu tinha amarrado ela a
+  //    `c.mesFecha === false`, ou seja, ao mês CORRENTE estourar. Mas a fatura
+  //    em formação vence no mês SEGUINTE — então em 24/08/2026, com agosto
+  //    fechando redondo e a fatura de 08/09 em R$ 10.260,33 contra um caixa de
+  //    R$ 3.187,95, a carta simplesmente não aparecia. Justo na semana em que
+  //    ela era a única coisa que importava.
+  //
+  //    O gatilho certo não é "o mês fechou?" — é "essa fatura cabe no caixa?".
   var maior = null;
   (DADOS.faturas || []).forEach(function(f){
     if (f.status !== "emFormacao" || f.congelada) return;
     if (!maior || Math.abs(f.saldoCents) > Math.abs(maior.saldoCents)) maior = f;
   });
-  if (maior && c.mesFecha === false){
+  if (maior){
+    var devo = Math.abs(maior.saldoCents);
+    var cabe = devo <= c.caixaCents;                 // dá pra pagar à vista?
     var cart = (DADOS.cartoes || []).find(function(x){ return x.id === maior.cartaoId; });
-    if (cart){
+    if (cart && !cabe){
       var f1 = new Date(hojeD); f1.setDate(cart.fechamento);
       if (f1 < hojeD) f1.setMonth(f1.getMonth() + 1);
       var ate = dias(iso(f1));
-      if (ate <= 12) return {
-        rot: "A janela", val: "fecha em " + (ate === 0 ? "hoje" : ate + (ate === 1 ? " dia" : " dias")),
-        txt: "A fatura do " + cart.nome + " fecha dia " + cart.fechamento + " com " +
-             C(Math.abs(maior.saldoCents)) + ". Depois que fechar, parcelar só vale até o vencimento — é a única janela."
-      };
+      if (ate <= 12){
+        var venc = cart.vencimento;
+        return {
+          rot: "A janela",
+          val: ate === 0 ? "fecha hoje" : "fecha em " + ate + (ate === 1 ? " dia" : " dias"),
+          txt: "A fatura do " + cart.nome + " fecha dia " + cart.fechamento + " com " + C(devo) +
+               " — e o caixa hoje é " + C(c.caixaCents) + ". Entre o dia " + cart.fechamento +
+               " e o dia " + venc + " é a única janela pra parcelar ela. Depois disso, só pagando."
+        };
+      }
     }
   }
 
