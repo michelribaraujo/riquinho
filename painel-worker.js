@@ -185,9 +185,23 @@ async function montarDados(env) {
 
   // Saldo por conta = soma dos lançamentos PAGOS em conta bancária, desde INICIO.
   // Se a API algum dia passar a devolver saldo pronto, ele ganha prioridade.
+  // ⚠️ A API DO ORGANIZZE NÃO DEVOLVE SALDO DE CONTA. Quando ela devolver,
+  // o valor dela manda. Enquanto não devolve, o saldo é SOMADO a partir de
+  // INICIO — e essa soma só fecha se INICIO for a data em que a conta do
+  // Organizze realmente começou. Com INICIO errado o saldo nasce torto e
+  // nunca se corrige: em 26/08/2026 o painel anunciou caixa de
+  // -R$ 31.372,77 quando o real era +R$ 2.941,23.
+  //
+  // Por isso o painel agora sabe DE ONDE veio o saldo e avisa quando ele é
+  // estimado. Número que o painel não pode conferir não pode ser dito com
+  // a mesma cara de um que ele confere.
+  let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived).map(a => {
-    let s = (a.balance_cents !== undefined && a.balance_cents !== null) ? a.balance_cents : null;
+    const bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents]
+      .find(v => typeof v === "number");
+    let s = (bruto !== undefined) ? bruto : null;
     if (s === null) {
+      saldoOrigem = "somado";
       s = 0;
       for (const t of lanc) {
         if (t.account_type === "CreditCard") continue;
@@ -335,6 +349,8 @@ async function montarDados(env) {
     origem: "rede",
     geradoEm: new Date().toISOString(),
     hoje: hojeISO,
+    // o painel precisa saber se pode confiar no caixa que está mostrando
+    saldoOrigem, inicioSaldo: inicio,
     mesRef: { ano, mes },
     contas, cartoes, faturas, aPagar, aReceber,
     gastoMes: { totalCents: gasto.totalCents, categorias: gasto.categorias },
@@ -528,8 +544,10 @@ a{color:inherit}
 .leque-mao{
   position:relative;width:250px;height:112px;pointer-events:auto;
 }
+/* ⚠️ A PENUMBRA PRECISA SER LARGA. Com ela curta o texto da página passava
+   entre as cartas e o leque virava sopa — o Michel chamou de "estranha". */
 .leque-mao::before{
-  content:"";position:absolute;left:-38%;right:-38%;top:-16%;bottom:-56%;z-index:0;
+  content:"";position:absolute;left:-64%;right:-64%;top:-30%;bottom:-90%;z-index:0;
   border-radius:50%;pointer-events:none;
   background:radial-gradient(ellipse at 50% 58%,
     var(--bg) 0%, var(--bg) 56%,
@@ -849,14 +867,23 @@ svg.g{display:block;width:100%;overflow:visible}
   position:fixed;inset:0;z-index:200;background:#0B0D1E;
   display:flex;flex-direction:column;justify-content:flex-end;
   overflow:hidden;opacity:0;pointer-events:none;
-  transition:opacity .8s ease;
+  transform:scale(1.03);transform-origin:50% 62%;
+  transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.3,1);
 }
 /* ⚠️ ESTA LINHA É OBRIGATÓRIA. O atributo [hidden] esconde via
    display:none da folha do navegador — e o display:flex acima, por ser
    mais específico, ganhava dele. Resultado: a mesa "fechava" mas
    continuava na tela por cima do painel, invisível só no papel. */
 .mesa-tela[hidden]{display:none}
-.mesa-tela.on{opacity:1;pointer-events:auto}
+.mesa-tela.on{opacity:1;pointer-events:auto;transform:scale(1)}
+/* ⭐ A SAÍDA. Antes era um fade chapado e a mesa "piscava" pra fora — o
+   Michel disse que a tela inicial não se comportava como as demais. Agora
+   ela AVANÇA na direção do olho e some, como quem atravessa a cena em vez
+   de trocar de slide. Fechar é entrar, não é apagar. */
+.mesa-tela.saindo{
+  opacity:0;transform:scale(1.12);
+  transition:opacity .5s ease, transform .55s cubic-bezier(.5,0,.75,.3);
+}
 .mesa-tela.saindo{opacity:0;transition:opacity .55s ease}
 .mesa-fundo{position:absolute;inset:0;width:100%;height:100%;display:block}
 
@@ -872,6 +899,16 @@ svg.g{display:block;width:100%;overflow:visible}
 
 /* ⚠️ A largura é a da ESFERA, não do gosto: 152px é o que cabe dentro do
    vidro sem o texto vazar pelas bordas. "em 21 dias" já estourou aqui. */
+/* ⚠️ O AVISO DE SALDO ESTIMADO. Enquanto a API do Organizze não devolver
+   saldo de conta, o painel soma os lançamentos a partir de INICIO — e essa
+   soma só fecha se INICIO estiver certo. Número que o painel não pode
+   conferir NÃO pode ser dito com a mesma cara de um que ele confere. */
+.aviso-saldo{
+  display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:8px 10px;
+  border:1px solid var(--line2);border-left:2px solid var(--warn);border-radius:6px;
+  background:var(--warn-soft);font-size:12px;color:var(--ink2);line-height:1.45;
+}
+.aviso-saldo b{color:var(--ink);font-weight:600}
 .mesa-bola{position:absolute;left:50%;top:43.5%;transform:translate(-50%,-50%);
   text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none}
 .mesa-bola .k{font-family:var(--fonte-num);font-size:9px;font-weight:500;
@@ -888,6 +925,29 @@ svg.g{display:block;width:100%;overflow:visible}
   gap:clamp(3px,.8vw,11px);width:min(94%,1020px);
   padding-bottom:clamp(74px,9vh,104px);
 }
+@keyframes mz-dar-carta{
+  from{opacity:0;
+    transform:translateY(120px) translateX(calc(var(--g) * -3px)) rotate(calc(var(--g) * 3deg)) scale(.86)}
+  to{opacity:1;
+    transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px))}
+}
+/* ⭐ A MESA SE MONTA NA FRENTE DELE. As seis cartas são DADAS uma a uma,
+   vindas de baixo, com o giro se assentando no fim — é o que transforma
+   "uma coisa única chapada" numa cena que acontece. O escalonamento é
+   curto de propósito: 90ms entre cartas, não meio segundo. */
+.mesa-tela.on .mesa-carta{animation:mz-dar-carta .62s cubic-bezier(.2,.75,.3,1) backwards}
+.mesa-tela.on .mesa-carta:nth-child(1){animation-delay:.30s}
+.mesa-tela.on .mesa-carta:nth-child(2){animation-delay:.39s}
+.mesa-tela.on .mesa-carta:nth-child(3){animation-delay:.48s}
+.mesa-tela.on .mesa-carta:nth-child(4){animation-delay:.57s}
+.mesa-tela.on .mesa-carta:nth-child(5){animation-delay:.66s}
+.mesa-tela.on .mesa-carta:nth-child(6){animation-delay:.75s}
+
+@keyframes mz-surgir{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.mesa-tela.on .mesa-topo{animation:mz-surgir .7s ease .12s backwards}
+.mesa-tela.on .mesa-bola{animation:mz-surgir .8s cubic-bezier(.2,.7,.3,1) .04s backwards}
+.mesa-tela.on .mesa-entrar{animation:mz-surgir .6s ease .92s backwards}
+
 .mesa-carta{
   --g:0;--dy:0;
   flex:1 1 0;min-width:0;max-width:150px;
@@ -951,6 +1011,11 @@ svg.g{display:block;width:100%;overflow:visible}
 @media (prefers-reduced-motion:reduce){
   .mesa-chama,.mesa-estrela,.mesa-halo,.mesa-fumo{animation:none}
   .mesa-fumo{opacity:.25}
+  /* a distribuição das cartas encolhe, mas não some: é ela que diz
+     que a mesa está sendo montada agora */
+  .mesa-tela.on .mesa-carta,.mesa-tela.on .mesa-topo,
+  .mesa-tela.on .mesa-bola,.mesa-tela.on .mesa-entrar{animation-duration:.2s;animation-delay:0s}
+  .mesa-tela,.mesa-tela.saindo{transition-duration:.2s;transform:none}
 }
 @media (max-width:720px){
   .mesa-cartas{flex-wrap:wrap;gap:8px;width:94%;padding-bottom:88px}
@@ -1174,8 +1239,8 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
 /* o leque flutua por cima do conteúdo — o fim da página precisa de ar
    embaixo, senão a última linha some atrás da mão de cartas */
-.main{padding-bottom:118px}
-@media (max-width:560px){ .main{padding-bottom:104px} }
+.main{padding-bottom:168px}
+@media (max-width:560px){ .main{padding-bottom:148px} }
 
 @media print{.leque,.topo .btn-sync{display:none}}
 </style>
@@ -3453,6 +3518,8 @@ function renderHoje(){
   renderEclipse(c);
 
   var dias = emDiasDeCasa(c.tetoDiaCents, c.casaDiaCents);
+  avisarSaldoEstimado();
+
   el("hCasa").textContent = c.casaDiaCents > 0
     ? "Sua casa custa " + C(c.casaDiaCents) + " por dia" + (dias ? " · o teto de hoje vale " + dias : "")
     : "";
@@ -3554,6 +3621,22 @@ function renderTiragem(c){
 /* O ECLIPSE na tela. Duas leituras possíveis, nunca uma bronca:
    - a linha cruza o zero  → mostra QUANDO e QUANTO, com a régua da casa
    - a linha nunca cruza   → diz isso, que é notícia boa e merece ser dita */
+/* Aviso honesto: o painel diz de onde tirou o caixa. */
+function avisarSaldoEstimado(){
+  var alvo = el("hFaixa");
+  if (!alvo || !alvo.parentNode) return;
+  var ja = el("avisoSaldo");
+  if (DADOS.saldoOrigem !== "somado"){ if (ja) ja.remove(); return; }
+  if (ja) return;
+  var n = document.createElement("div");
+  n.className = "aviso-saldo"; n.id = "avisoSaldo";
+  n.innerHTML = '<span>⚠</span><span>O Organizze não devolve saldo de conta pela API, ' +
+    'então este caixa é <b>somado</b> a partir de ' + esc(DADOS.inicioSaldo || "2024-01-01") +
+    '. Se ele não bater com o app, o secret <b>INICIO</b> do Worker precisa ser a data ' +
+    'em que sua conta do Organizze começou.</span>';
+  alvo.parentNode.insertBefore(n, alvo.nextSibling);
+}
+
 function renderEclipse(c){
   var e = c.eclipse, bloco = el("hEclipseBloco"), node = el("hEclipse");
   if (!e) { bloco.hidden = true; return; }

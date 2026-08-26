@@ -185,9 +185,23 @@ async function montarDados(env) {
 
   // Saldo por conta = soma dos lançamentos PAGOS em conta bancária, desde INICIO.
   // Se a API algum dia passar a devolver saldo pronto, ele ganha prioridade.
+  // ⚠️ A API DO ORGANIZZE NÃO DEVOLVE SALDO DE CONTA. Quando ela devolver,
+  // o valor dela manda. Enquanto não devolve, o saldo é SOMADO a partir de
+  // INICIO — e essa soma só fecha se INICIO for a data em que a conta do
+  // Organizze realmente começou. Com INICIO errado o saldo nasce torto e
+  // nunca se corrige: em 26/08/2026 o painel anunciou caixa de
+  // -R$ 31.372,77 quando o real era +R$ 2.941,23.
+  //
+  // Por isso o painel agora sabe DE ONDE veio o saldo e avisa quando ele é
+  // estimado. Número que o painel não pode conferir não pode ser dito com
+  // a mesma cara de um que ele confere.
+  let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived).map(a => {
-    let s = (a.balance_cents !== undefined && a.balance_cents !== null) ? a.balance_cents : null;
+    const bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents]
+      .find(v => typeof v === "number");
+    let s = (bruto !== undefined) ? bruto : null;
     if (s === null) {
+      saldoOrigem = "somado";
       s = 0;
       for (const t of lanc) {
         if (t.account_type === "CreditCard") continue;
@@ -335,6 +349,8 @@ async function montarDados(env) {
     origem: "rede",
     geradoEm: new Date().toISOString(),
     hoje: hojeISO,
+    // o painel precisa saber se pode confiar no caixa que está mostrando
+    saldoOrigem, inicioSaldo: inicio,
     mesRef: { ano, mes },
     contas, cartoes, faturas, aPagar, aReceber,
     gastoMes: { totalCents: gasto.totalCents, categorias: gasto.categorias },
