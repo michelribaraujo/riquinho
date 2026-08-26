@@ -323,6 +323,78 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+/* ── O BARALHO ─────────────────────────────────────────────────
+   A abertura do painel. Seis arcanos: você toca, a carta vira, e só então
+   a tela abre. A virada não é enfeite — é o tempo que o Michel precisa pra
+   sair de "onde eu estava" e entrar em "o que vou olhar agora". */
+.baralho{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:24px 14px;margin-top:4px}
+.slot{aspect-ratio:2/3;position:relative;perspective:1500px;perspective-origin:50% 45%}
+
+/* a sombra é elemento de verdade, não ::before — quem anima ela é JS,
+   e JS não alcança pseudo-elemento */
+.slot .sombra{
+  position:absolute;left:8%;right:8%;bottom:-12px;height:16px;z-index:0;
+  border-radius:50%;background:rgba(35,42,82,.28);filter:blur(9px);pointer-events:none;
+}
+body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
+
+.flip{
+  position:absolute;inset:0;z-index:1;transform-style:preserve-3d;
+  transform:rotateY(0deg);transform-origin:50% 55%;
+  cursor:pointer;border:0;padding:0;background:none;font:inherit;color:inherit;
+  display:block;width:100%;height:100%;text-align:inherit;
+}
+.slot:not(.mexendo) .flip{transition:transform .3s cubic-bezier(.2,.7,.3,1)}
+.slot:not(.mexendo) .flip:hover{transform:translateY(-6px) scale(1.02)}
+.slot.mexendo .flip{transition:none}
+
+/* ⚠️ SEM backface-visibility AS DUAS FACES APARECEM JUNTAS e a frente fica
+   espelhada. Já apaguei estas regras uma vez sem querer. Não mexer sem
+   conferir a carta virando na tela. */
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--sf);border:1px solid var(--line2);border-radius:8px;
+  padding:11px;display:flex;flex-direction:column;
+  box-shadow:0 1px 0 var(--sf2),0 12px 26px -20px rgba(35,42,82,.55);
+}
+.face::after{
+  content:"";position:absolute;inset:5px;border:1px solid var(--ouro);
+  opacity:.38;border-radius:4px;pointer-events:none;transition:opacity .25s ease;
+}
+.slot.quina .face::after{opacity:1}
+.face.verso{transform:rotateY(180deg);gap:2px}
+.flip:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:10px}
+
+.face .rn{font-family:var(--fonte-display);font-size:14px;font-weight:600;color:var(--ouro-txt);line-height:1}
+.face .fig{flex:1;display:grid;place-items:center;padding:2px;color:var(--ouro)}
+.face .nome{
+  font-family:var(--fonte-display);font-size:14px;font-weight:600;text-align:center;
+  text-transform:uppercase;letter-spacing:.09em;line-height:1.12;
+}
+.face .sig{
+  font-family:var(--fonte-num);font-size:8.5px;text-align:center;color:var(--ink3);
+  letter-spacing:.05em;margin-top:4px;line-height:1.4;
+}
+.verso .vk{
+  font-family:var(--fonte-num);font-size:8.5px;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--ouro-txt);margin-top:3px;
+}
+.verso .vv{
+  font-family:var(--fonte-num);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;
+  line-height:1.1;letter-spacing:-.03em;margin-top:2px;
+}
+.verso .vv.ruim{color:var(--crit)} .verso .vv.bom{color:var(--good)}
+.verso .vd{font-size:11px;color:var(--ink2);line-height:1.4;margin-top:5px;flex:1}
+.verso .vb{
+  font-family:var(--fonte-num);font-size:8.5px;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--ouro-txt);border-top:1px solid var(--line);padding-top:6px;
+}
+@media (prefers-reduced-motion:reduce){
+  /* ⚠️ NUNCA usar `*` aqui. A virada da carta é conteúdo, não enfeite:
+     um seletor universal zerando animação já matou ela uma vez inteira. */
+  .slot .sombra{display:none}
+}
+
 /* ── O SELO ────────────────────────────────────────────────────
    Carimbo de cera. Fica torto de propósito: carimbo reto parece badge
    de gamificação, e isso é a última coisa que este painel quer ser. */
@@ -516,6 +588,9 @@ svg.g{display:block;width:100%;overflow:visible}
     </div>
 
     <nav class="nav" id="nav">
+      <button data-tela="baralho" data-arc="✦">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="16" rx="1.5"/><path d="M9 7l1.2 3.4L13.6 9l-2 3 2 3-3.4-1.4L9 17l-1.2-3.4L4.4 15l2-3-2-3L7.8 10.4z" fill="none"/></svg><span>O baralho</span>
+      </button>
       <button data-tela="hoje" data-arc="I" aria-current="true">
         <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg><span>Hoje</span>
       </button>
@@ -566,6 +641,11 @@ svg.g{display:block;width:100%;overflow:visible}
     </header>
 
     <!-- ---------- TELA: HOJE ---------- -->
+    <section class="tela" id="tela-baralho" hidden>
+      <p class="escopo" id="bEscopo"></p>
+      <div class="baralho" id="bBaralho"></div>
+    </section>
+
     <section class="tela" id="tela-hoje">
       <p class="escopo" id="hEscopo"></p>
 
@@ -780,7 +860,7 @@ svg.g{display:block;width:100%;overflow:visible}
 
 var DADOS = null;
 var CALC  = {};
-var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—" };
+var ESTADO = { tela:"baralho", mes:null, janela:"mes", carregando:false, origem:"—" };
 /* Categorias que alimentam a alma ou a saúde. O painel mostra o número,
    mas NUNCA as aponta como problema num insight. */
 var INTOCAVEIS = ["Religião","Saúde","chá","Prevenção e saúde"];
@@ -1407,6 +1487,7 @@ function render(){
   if (!CALC.dadosCarregados) return;
   renderSelo();
   renderMarca();
+  renderBaralho(CALC);
   renderPeriodo();
   renderHoje();
   renderPagar();
@@ -1560,6 +1641,105 @@ function renderPagar(){
 }
 
 /* ---------------------------------------------------------- TELA: HOJE ---- */
+/* ═══ O BARALHO ═══════════════════════════════════════════════════
+   Seis arcanos, um por tela. Cada carta mostra na frente quem ela é, e no
+   verso o número que resume a tela. Tocar vira a carta e SÓ DEPOIS abre —
+   a virada é a transição, não um enfeite antes dela.
+
+   A frente e o verso vêm de ARCANOS + verso(c): o desenho é fixo, o número
+   nasce em recalcular() como todo o resto. Nenhuma carta calcula nada.     */
+
+var ARCANOS = [
+  { tela:"hoje",  rn:"I",   nome:"A Estrela",    sig:"onde você está<br>agora · o caixa",
+    fig:'<path d="M40 8 L46 32 L70 26 L54 40 L70 54 L46 48 L40 72 L34 48 L10 54 L26 40 L10 26 L34 32 Z"/><circle cx="40" cy="40" r="4" fill="currentColor" stroke="none"/>' },
+  { tela:"pagar", rn:"II",  nome:"O Arauto",     sig:"o que se aproxima<br>contas do mês",
+    fig:'<path d="M40 12 L40 44" stroke-linecap="round"/><circle cx="40" cy="52" r="5"/><path d="M22 28 A24 24 0 0 1 58 28"/><path d="M14 20 A34 34 0 0 1 66 20" opacity=".5"/>' },
+  { tela:"mes",   rn:"III", nome:"A Roda",       sig:"o mês girando<br>fluxo e projeção",
+    fig:'<circle cx="40" cy="40" r="28"/><circle cx="40" cy="40" r="9"/><path d="M40 12 L40 31 M40 49 L40 68 M12 40 L31 40 M49 40 L68 40"/><path d="M20 20 L28 28 M60 20 L52 28 M20 60 L28 52 M60 60 L52 52" opacity=".55"/>' },
+  { tela:"onde",  rn:"IV",  nome:"O Céu",        sig:"para onde foi<br>constelação",
+    fig:'<path d="M18 22 L34 44 L58 30 L66 56 L38 62 L18 22" opacity=".55"/><circle cx="18" cy="22" r="4" fill="currentColor" stroke="none"/><circle cx="34" cy="44" r="2.6" fill="currentColor" stroke="none"/><circle cx="58" cy="30" r="3.4" fill="currentColor" stroke="none"/><circle cx="66" cy="56" r="2.2" fill="currentColor" stroke="none"/><circle cx="38" cy="62" r="3" fill="currentColor" stroke="none"/>' },
+  { tela:"comp",  rn:"V",   nome:"As Correntes", sig:"o que já está<br>comprometido",
+    fig:'<ellipse cx="40" cy="22" rx="13" ry="8"/><ellipse cx="40" cy="40" rx="13" ry="8"/><ellipse cx="40" cy="58" rx="13" ry="8" opacity=".5"/>' },
+  { tela:"saude", rn:"VI",  nome:"A Lua",        sig:"o clima do mês<br>saúde financeira",
+    fig:'<circle cx="40" cy="40" r="24"/><circle cx="40" cy="40" r="17" stroke-dasharray="2 4" opacity=".55"/>' }
+];
+
+/* O verso de cada arcano. Só lê CALC — nunca calcula. */
+function versoDoArcano(tela, c){
+  var m = c.sel;
+  if (tela === "hoje") return {
+    k:"Caixa hoje", v:C(c.caixaCents), tom:"",
+    d:"Todo o dinheiro que existe agora. Sem promessa dentro.",
+    b:DADOS.contas.length + (DADOS.contas.length === 1 ? " conta" : " contas") };
+
+  if (tela === "pagar") return {
+    k:"Falta pagar", v:C(m.faltaCents), tom: m.faltaCents > 0 ? "" : "bom",
+    d: m.qtd === 0 ? "Nenhuma conta em aberto." : m.qtdPagas + " de " + m.qtd + " já marcadas.",
+    b:m.rotulo };
+
+  if (tela === "mes"){
+    var e = c.eclipse;
+    return { k: e && e.negativa ? "Fundo do poço" : "Menor saldo",
+      v: e ? C(e.fundoCents) : "—", tom: e && e.fundoCents < 0 ? "ruim" : "bom",
+      d: e && e.negativa ? "A linha cruza o zero em " + e.cruzaEm.slice(8,10) + "/" + e.cruzaEm.slice(5,7) + "."
+                         : "A linha não cruza o zero nos próximos 3 meses.",
+      b: e ? (e.negativa ? "eclipse " : "fundo ") + e.fundoEm.slice(8,10) + "/" + e.fundoEm.slice(5,7) : "" };
+  }
+
+  if (tela === "onde") return {
+    k:"Gasto de " + nomeMesCurto(m.ym), v:C(m.gastoCents), tom:"",
+    d:"Para onde o dinheiro foi neste mês, categoria por categoria.",
+    b:"ver constelação" };
+
+  if (tela === "comp"){
+    var aberto = soma((DADOS.faturas||[]).filter(function(f){
+      return !f.congelada && f.saldoCents !== 0 && f.status !== "futura";
+    }), function(f){ return Math.abs(f.saldoCents); });
+    return { k:"Faturas em aberto", v:C(aberto), tom: aberto > c.caixaCents ? "ruim" : "",
+      d:"O que já foi comprado e ainda vai chegar como conta.", b:"parcelas e dívidas" };
+  }
+
+  var sem = c.semaforo || {};
+  return { k:"O clima de hoje", v:sem.rot || "—",
+    tom: sem.e === "pode" ? "bom" : (sem.e === "nao" ? "ruim" : ""),
+    d: c.folegoDias != null ? "O caixa segura " + fmtFolego(c.folegoDias) + " sem entrar nada." : "",
+    b:"indicadores" };
+}
+
+function renderBaralho(c){
+  var no = el("bBaralho"); if (!no) return;
+  el("bEscopo").textContent = "Toque numa carta pra abrir a tela dela.";
+  no.innerHTML = "";
+
+  ARCANOS.forEach(function(a){
+    var v = versoDoArcano(a.tela, c);
+    var slot = document.createElement("div");
+    slot.className = "slot";
+    slot.innerHTML =
+      '<span class="sombra"></span>' +
+      '<button class="flip" type="button" aria-label="' + a.nome + ' — abrir ' + TITULOS[a.tela] + '">' +
+        '<span class="face frente">' +
+          '<span class="rn">' + a.rn + '</span>' +
+          '<span class="fig"><svg viewBox="0 0 80 80" width="60" height="60" fill="none" ' +
+            'stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">' + a.fig + '</svg></span>' +
+          '<span class="nome">' + a.nome + '</span>' +
+          '<span class="sig">' + a.sig + '</span>' +
+        '</span>' +
+        '<span class="face verso">' +
+          '<span class="rn">' + a.rn + '</span>' +
+          '<span class="vk">' + esc(v.k) + '</span>' +
+          '<span class="vv ' + v.tom + '">' + esc(v.v) + '</span>' +
+          '<span class="vd">' + esc(v.d) + '</span>' +
+          '<span class="vb">' + esc(v.b) + ' ›</span>' +
+        '</span>' +
+      '</button>';
+    no.appendChild(slot);
+    slot.querySelector(".flip").addEventListener("click", function(){
+      virarCarta(slot, a.tela);
+    });
+  });
+}
+
 function renderHoje(){
   var c = CALC;
 
@@ -2240,10 +2420,74 @@ function mostrarTip(ev, titulo, linhas){
 function esconderTip(){ if (TIP) TIP.classList.remove("on"); }
 
 /* --------------------------------------------------------- navegação ------ */
-var TITULOS = { hoje:"Hoje", pagar:"A pagar", mes:"Fluxo do mês", onde:"Onde vai o dinheiro",
+var TITULOS = { baralho:"O baralho", hoje:"Hoje", pagar:"A pagar", mes:"Fluxo do mês", onde:"Onde vai o dinheiro",
                 comp:"Comprometido", saude:"Saúde financeira" };
 // O seletor de período só faz sentido nas telas que olham um mês específico.
 var USA_PERIODO = { pagar:1, onde:1 };
+/* ═══ A VIRADA ════════════════════════════════════════════════════
+   Roda em Web Animations API, não em CSS. Dois motivos, os dois pagos com
+   erro no protótipo:
+     1. um `@media (prefers-reduced-motion){*{animation-duration:.01ms}}`
+        zerava a virada inteira em qualquer aparelho com "reduzir movimento";
+     2. `animation: virar var(--dur) ...` cai calado se a variável não
+        resolver, e sobra só o transform estático — que é "pular pro verso".
+   Aqui a duração é número e o easing é por trecho: a mão puxa, acelera na
+   passagem pela quina, e freia pra pousar.                                 */
+
+var DUR_VIRADA = 1150;
+var virando = false;
+
+function quadrosDaVirada(){
+  return [
+    { transform:"rotateY(0deg) translateY(0px) translateZ(0px) rotateZ(0deg) scale(1)",
+      easing:"cubic-bezier(.34,.9,.42,1)" },
+    { offset:.14, transform:"rotateY(-8deg) translateY(-12px) translateZ(42px) rotateZ(-1.8deg) scale(1.05)",
+      easing:"cubic-bezier(.5,0,.72,.45)" },
+    { offset:.34, transform:"rotateY(36deg) translateY(-22px) translateZ(70px) rotateZ(-2.4deg) scale(1.08)",
+      easing:"linear" },
+    { offset:.54, transform:"rotateY(92deg) translateY(-25px) translateZ(78px) rotateZ(-1.2deg) scale(1.09)",
+      easing:"linear" },
+    { offset:.74, transform:"rotateY(148deg) translateY(-19px) translateZ(60px) rotateZ(1deg) scale(1.06)",
+      easing:"cubic-bezier(.25,.6,.3,1)" },
+    { offset:.9,  transform:"rotateY(174deg) translateY(-7px) translateZ(24px) rotateZ(1.2deg) scale(1.02)",
+      easing:"cubic-bezier(.2,.7,.3,1)" },
+    { transform:"rotateY(180deg) translateY(0px) translateZ(0px) rotateZ(0deg) scale(1)" }
+  ];
+}
+
+var SOMBRA_DA_VIRADA = [
+  { opacity:.55, transform:"scale(1)", filter:"blur(9px)" },
+  { offset:.5, opacity:.16, transform:"scale(1.26) translateY(10px)", filter:"blur(18px)" },
+  { opacity:.55, transform:"scale(1)", filter:"blur(9px)" }
+];
+
+function virarCarta(slot, destino){
+  if (virando) return;                       // uma mão de cada vez
+  var carta = slot.querySelector(".flip"), sombra = slot.querySelector(".sombra");
+  if (!carta || !carta.animate) { irPara(destino); return; }   // navegador sem WAAPI: vai direto
+
+  virando = true;
+  slot.classList.add("mexendo");
+  var acende = setTimeout(function(){ slot.classList.add("quina"); }, DUR_VIRADA * .40);
+  var apaga  = setTimeout(function(){ slot.classList.remove("quina"); }, DUR_VIRADA * .70);
+
+  var anim = carta.animate(quadrosDaVirada(), { duration:DUR_VIRADA, fill:"forwards", easing:"linear" });
+  if (sombra && sombra.animate) sombra.animate(SOMBRA_DA_VIRADA, { duration:DUR_VIRADA, easing:"linear" });
+
+  var acabou = false;
+  function terminar(){
+    if (acabou) return; acabou = true;
+    clearTimeout(acende); clearTimeout(apaga);
+    slot.classList.remove("quina","mexendo");
+    try { anim.cancel(); } catch(e){}
+    virando = false;
+    irPara(destino);
+  }
+  if (anim.finished && anim.finished.then) anim.finished.then(terminar).catch(terminar);
+  else anim.onfinish = terminar;
+  setTimeout(terminar, DUR_VIRADA + 250);    // rede de segurança
+}
+
 function irPara(t){
   ESTADO.tela = t;
   document.querySelectorAll(".tela").forEach(function(s){ s.hidden = (s.id !== "tela-" + t); });
@@ -2297,6 +2541,18 @@ document.addEventListener("keydown", function(ev){
 try {
   var tm = localStorage.getItem("painel:tema"); if (tm) document.documentElement.dataset.tema = tm;
   var tl = localStorage.getItem("painel:tela"); if (tl && TITULOS[tl]) irPara(tl);
+  // clicar na marca sempre volta pro baralho — é o "início" do painel
+  var marca = document.querySelector(".marca");
+  if (marca){
+    marca.style.cursor = "pointer";
+    marca.setAttribute("role","button");
+    marca.setAttribute("tabindex","0");
+    marca.setAttribute("aria-label","Voltar ao baralho");
+    marca.addEventListener("click", function(){ irPara("baralho"); });
+    marca.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); irPara("baralho"); }
+    });
+  }
   var mm = localStorage.getItem("painel:mes"); if (mm) ESTADO.mes = mm;
 } catch(e){}
 iniciar();
