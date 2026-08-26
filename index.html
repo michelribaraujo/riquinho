@@ -216,7 +216,7 @@ a{color:inherit}
 
 /* OS DEDOS. O símbolo do riquinho fica NO ponto de ancoragem: é ele que
    segura o leque. Some do meio da fileira — no vértice ele faz sentido
-   de verdade, e é também o botão que volta pro baralho. */
+   de verdade, e é também o botão que abre a mesa de hoje. */
 .leque-sig{
   position:absolute;left:50%;bottom:-12px;margin-left:-21px;z-index:25;
   width:42px;height:42px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%;
@@ -578,7 +578,6 @@ svg.g{display:block;width:100%;overflow:visible}
    A abertura do painel. Seis arcanos: você toca, a carta vira, e só então
    a tela abre. A virada não é enfeite — é o tempo que o Michel precisa pra
    sair de "onde eu estava" e entrar em "o que vou olhar agora". */
-.baralho{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:24px 14px;margin-top:4px}
 .slot{aspect-ratio:2/3;position:relative;perspective:1500px;perspective-origin:50% 45%}
 
 /* a sombra é elemento de verdade, não ::before — quem anima ela é JS,
@@ -841,12 +840,6 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
     </header>
 
     <!-- ---------- TELA: HOJE ---------- -->
-    <section class="tela" id="tela-baralho" hidden>
-      <button class="mesa-rever" id="btnRever" type="button">✦ rever a mesa de hoje</button>
-      <p class="escopo" id="bEscopo"></p>
-      <div class="baralho" id="bBaralho"></div>
-    </section>
-
     <section class="tela" id="tela-hoje">
       <p class="escopo" id="hEscopo"></p>
 
@@ -1994,7 +1987,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
 var DADOS = null;
 var CALC  = {};
-var ESTADO = { tela:"baralho", mes:null, janela:"mes", carregando:false, origem:"—" };
+var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—" };
 /* Categorias que alimentam a alma ou a saúde. O painel mostra o número,
    mas NUNCA as aponta como problema num insight. */
 var INTOCAVEIS = ["Religião","Saúde","chá","Prevenção e saúde"];
@@ -2624,7 +2617,6 @@ function render(){
   if (!CALC.dadosCarregados) return;
   renderSelo();
   renderMarca();
-  renderBaralho(CALC);
   renderPeriodo();
   renderHoje();
   renderPagar();
@@ -2941,6 +2933,9 @@ function montarMesa(c){
   });
 }
 
+/* Reabrir na mão é sempre permitido — o que acontece uma vez por dia é a
+   abertura AUTOMÁTICA. Cerimônia forçada duas vezes cansa; cerimônia
+   procurada, não. */
 function abrirMesa(){
   if (!CALC || !CALC.dadosCarregados) return;
   var t = el("mesaTela"); if (!t) return;
@@ -3007,14 +3002,18 @@ function montarLeque(){
      torno do ponto de ancoragem, sem carta nenhuma no eixo central */
   ARCANOS.forEach(function(a,i){ mao.appendChild(carta(a, i - 2.5)); });
 
+  /* ⭐ O SÍMBOLO NO VÉRTICE É O BOTÃO DA MESA — não de mais uma tela de
+     navegação. Antes ele abria "O baralho", que era uma terceira forma de
+     navegar além do leque e da mesa: o Michel clicou no que parecia home e
+     caiu num lugar que não era a tela inicial. Três caminhos pro mesmo
+     lugar é um a mais que o necessário; a tela do baralho foi removida. */
   var sig = document.createElement("button");
   sig.type = "button";
   sig.className = "leque-sig";
-  sig.dataset.tela = "baralho";
-  sig.setAttribute("aria-label", "O baralho");
-  sig.title = "O baralho";
+  sig.setAttribute("aria-label", "A mesa de hoje");
+  sig.title = "A mesa de hoje";
   sig.innerHTML = sigla();
-  sig.addEventListener("click", function(){ irPara("baralho"); });
+  sig.addEventListener("click", function(){ abrirMesa(); });
   mao.appendChild(sig);
 
   mao.dataset.pronto = "1";
@@ -3051,40 +3050,6 @@ function nomeDoLeque(tela){
   var a = ARCANOS.filter(function(x){ return x.tela === tela; })[0];
   no.textContent = a ? a.rn + " · " + a.nome : (tela === "baralho" ? "o baralho" : "");
   no.classList.toggle("on", !!no.textContent);
-}
-
-function renderBaralho(c){
-  var no = el("bBaralho"); if (!no) return;
-  el("bEscopo").textContent = "Toque numa carta pra abrir a tela dela.";
-  no.innerHTML = "";
-
-  ARCANOS.forEach(function(a){
-    var v = versoDoArcano(a.tela, c);
-    var slot = document.createElement("div");
-    slot.className = "slot";
-    slot.innerHTML =
-      '<span class="sombra"></span>' +
-      '<button class="flip" type="button" aria-label="' + a.nome + ' — abrir ' + TITULOS[a.tela] + '">' +
-        '<span class="face frente">' +
-          '<span class="rn">' + a.rn + '</span>' +
-          '<span class="fig"><svg viewBox="0 0 80 80" width="60" height="60" fill="none" ' +
-            'stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">' + a.fig + '</svg></span>' +
-          '<span class="nome">' + a.nome + '</span>' +
-          '<span class="sig">' + a.sig + '</span>' +
-        '</span>' +
-        '<span class="face verso">' +
-          '<span class="rn">' + a.rn + '</span>' +
-          '<span class="vk">' + esc(v.k) + '</span>' +
-          '<span class="vv ' + v.tom + '">' + esc(v.v) + '</span>' +
-          '<span class="vd">' + esc(v.d) + '</span>' +
-          '<span class="vb">' + esc(v.b) + ' ›</span>' +
-        '</span>' +
-      '</button>';
-    no.appendChild(slot);
-    slot.querySelector(".flip").addEventListener("click", function(){
-      virarCarta(slot, a.tela);
-    });
-  });
 }
 
 function renderHoje(){
@@ -3767,7 +3732,7 @@ function mostrarTip(ev, titulo, linhas){
 function esconderTip(){ if (TIP) TIP.classList.remove("on"); }
 
 /* --------------------------------------------------------- navegação ------ */
-var TITULOS = { baralho:"O baralho", hoje:"Hoje", pagar:"A pagar", mes:"Fluxo do mês", onde:"Onde vai o dinheiro",
+var TITULOS = { hoje:"Hoje", pagar:"A pagar", mes:"Fluxo do mês", onde:"Onde vai o dinheiro",
                 comp:"Comprometido", saude:"Saúde financeira" };
 // O seletor de período só faz sentido nas telas que olham um mês específico.
 var USA_PERIODO = { pagar:1, onde:1 };
@@ -3893,25 +3858,23 @@ try {
   var tm = localStorage.getItem("painel:tema"); if (tm) document.documentElement.dataset.tema = tm;
   montarLeque();
   var tl = localStorage.getItem("painel:tela"); if (tl && TITULOS[tl]) irPara(tl);
-  else irPara("baralho");
+  else irPara("hoje");
 
   var bEnt = el("mzEntrar");
   if (bEnt) bEnt.addEventListener("click", function(){ fecharMesa(null); });
-  var bRev = el("btnRever");
-  if (bRev) bRev.addEventListener("click", function(){ abrirMesa(); });
   document.addEventListener("keydown", function(ev){
     if (ev.key === "Escape") fecharMesa(null);
   });
-  // clicar na marca sempre volta pro baralho — é o "início" do painel
+  // clicar na marca abre a mesa: é ela a tela inicial do painel
   var marca = document.querySelector(".marca");
   if (marca){
     marca.style.cursor = "pointer";
     marca.setAttribute("role","button");
     marca.setAttribute("tabindex","0");
-    marca.setAttribute("aria-label","Voltar ao baralho");
-    marca.addEventListener("click", function(){ irPara("baralho"); });
+    marca.setAttribute("aria-label","A mesa de hoje");
+    marca.addEventListener("click", function(){ abrirMesa(); });
     marca.addEventListener("keydown", function(ev){
-      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); irPara("baralho"); }
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); abrirMesa(); }
     });
   }
   var mm = localStorage.getItem("painel:mes"); if (mm) ESTADO.mes = mm;
