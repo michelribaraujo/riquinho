@@ -105,120 +105,138 @@ a{color:inherit}
 .mini-btn:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
 
 /* ── O LEQUE ────────────────────────────────────────────────────
-   A navegação é uma mão segurando cartas. As inativas estão VIRADAS
-   PRA BAIXO — você vê o verso, com o dorso de ouro. A da tela em que
-   você está fica VIRADA PRA CIMA: sobe, endireita e mostra a face.
+   A navegação é uma mão segurando cartas — não uma barra com ícones.
 
-   A geometria vem toda de --pos (-3..-1, 1..3): o ângulo é pos × 7° e
-   o pivô fica ABAIXO da carta, então girar já produz o arco do leque
-   sozinho — sem precisar calcular translateY pra cada uma.            */
+   TRÊS TRANSFORMS SEPARADOS, cada um no seu elemento, porque brigar por
+   um transform só foi exatamente o que quebrou a primeira versão:
+     .carta-nav  → o lugar da carta no leque (ângulo, altura, afastamento)
+     .giro       → a virada em si (rotateY), com as duas faces em 3D
+     .leque-sig  → o símbolo, que não é carta e não gira
+
+   E o SAQUE: tocar numa carta não troca de tela na hora. A carta sobe,
+   se endireita, VIRA PRA CIMA — e as vizinhas se afastam pra abrir o
+   buraco de onde ela saiu. É o gesto de sacar carta da mão.            */
 .leque{
-  position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:60;
-  display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;
+  position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;
+  display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;
   max-width:calc(100% - 16px);
 }
 .leque-nome{
   font-family:var(--fonte-num);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;
-  color:var(--ouro-txt);opacity:0;transition:opacity .25s ease;
-  /* fundo próprio: o rótulo flutua por cima do conteúdo da página e sem
-     isso ele se mistura com o texto que está atrás */
-  padding:3px 10px;border-radius:20px;
-  background:var(--sf);border:1px solid var(--line);
+  color:var(--ouro-txt);opacity:0;transition:opacity .3s ease;
+  padding:3px 11px;border-radius:20px;background:var(--sf);border:1px solid var(--line);
+  white-space:nowrap;
 }
 .leque-nome.on{opacity:1}
+
+/* Sem pílula. O que separa o leque do conteúdo é uma penumbra macia —
+   toolbar com borda dura matava a ideia de mão segurando cartas. */
 .leque-mao{
   position:relative;display:flex;align-items:flex-end;justify-content:center;
-  /* o topo é folgado de propósito: a carta ativa sobe 16px e cresce 14%,
-     e sem esse ar ela vazava por cima do leque e cobria o nome do arcano */
-  padding:30px 20px 18px;border-radius:74px;pointer-events:auto;
-  /* ⚠️ FUNDO SÓLIDO, não translúcido. Com color-mix + backdrop-filter o texto
-     da página atravessava a barra e o leque ficava ilegível — barra de
-     navegação não é vidro, é papel por cima do papel. */
-  background:var(--sf);
-  border:1px solid var(--line2);
-  box-shadow:0 14px 38px -16px rgba(20,22,45,.5), 0 2px 0 var(--sf2);
+  padding:34px 26px 20px;pointer-events:auto;
 }
-.leque-mao::after{
-  content:"";position:absolute;inset:4px;border-radius:70px;pointer-events:none;
-  border:1px solid var(--ouro);opacity:.20;
+/* A penumbra. Precisa ser generosa: com ela curta demais, o texto da
+   página aparecia ENTRE as cartas e o leque virava sopa visual. */
+.leque-mao::before{
+  content:"";position:absolute;left:-16%;right:-16%;top:-4%;bottom:-34%;z-index:0;
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 58%,
+    var(--bg) 0%, var(--bg) 58%,
+    color-mix(in srgb,var(--bg) 72%,transparent) 74%,
+    color-mix(in srgb,var(--bg) 30%,transparent) 88%, transparent 100%);
 }
 
 .carta-nav{
-  /* --lift sobe as cartas de fora: girar em torno de um pivô abaixo faz a
-     quina de baixo delas descer, e sem esse ajuste elas furam o leque. */
-  --pos:0; --lift:0; --rot:calc(var(--pos) * 7deg);
-  position:relative;width:46px;height:64px;flex:0 0 auto;margin-inline:-11px;
+  --pos:0; --lift:0; --shift:0;
+  --rot:calc(var(--pos) * 7deg);
+  position:relative;z-index:1;width:48px;height:70px;flex:0 0 auto;margin-inline:-6px;
   border:0;padding:0;background:none;cursor:pointer;
-  transform-origin:50% 210%;
-  transform:rotate(var(--rot)) translateY(calc(var(--lift) * -1px));
-  transition:transform .32s cubic-bezier(.2,.7,.3,1), filter .32s ease;
-  z-index:calc(10 - max(var(--pos), calc(var(--pos) * -1)));
+  transform-origin:50% 200%;
+  transform:rotate(var(--rot)) translateY(calc(var(--lift) * -1px)) translateX(calc(var(--shift) * 1px));
+  transition:transform .42s cubic-bezier(.22,.68,.3,1);
+  perspective:520px;
 }
-.carta-nav .dorso,.carta-nav .frente-nav{
-  position:absolute;inset:0;border-radius:5px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:2px;
+.giro{
+  position:absolute;inset:0;transform-style:preserve-3d;
+  transform:rotateY(0deg);
+  /* a virada espera a carta subir: primeiro o saque, depois o giro */
+  transition:transform .42s cubic-bezier(.3,.05,.25,1) .1s;
+}
+/* ⚠️ NOME PRÓPRIO, NÃO `.face`. Eu reusei `.face` aqui e as cartas do
+   leque herdaram o `background:var(--sf)` das cartas GRANDES do baralho,
+   que é declarado depois — resultado: verso e face saíam da mesma cor e a
+   carta sacada ficava indistinguível. Mesma lição do renderSelo: antes de
+   reaproveitar um nome, `grep -n "^\.nome{" index.html`.              */
+.carta-nav .lface{
+  position:absolute;inset:0;border-radius:6px;display:flex;align-items:center;justify-content:center;
   backface-visibility:hidden;-webkit-backface-visibility:hidden;
-  box-shadow:0 3px 10px -5px rgba(20,22,45,.6);
+  box-shadow:0 4px 12px -6px rgba(15,17,35,.75);
 }
-/* VERSO — o dorso do baralho: noite com fio de ouro */
-.carta-nav .dorso{
-  background:var(--noite);border:1px solid var(--ouro);color:var(--ouro-luz);
+.carta-nav .lface .rnn{
+  font-family:var(--fonte-display);font-size:9.5px;font-weight:600;letter-spacing:.06em;
+  position:absolute;top:5px;left:0;right:0;text-align:center;
 }
-.carta-nav .dorso::after{
-  content:"";position:absolute;inset:3px;border:1px solid currentColor;opacity:.3;border-radius:3px;
+.carta-nav .lface::after{
+  content:"";position:absolute;inset:3.5px;border:1px solid currentColor;opacity:.3;border-radius:4px;
 }
-.carta-nav .dorso .rnn{
-  font-family:var(--fonte-display);font-size:9px;font-weight:600;letter-spacing:.06em;
-  position:absolute;top:4px;left:0;right:0;text-align:center;opacity:.75;
-}
-/* FACE — só a carta da tela atual fica virada pra cima */
+.carta-nav svg{width:27px;height:27px;margin-top:5px}
+
+/* VERSO — o dorso do baralho */
+.carta-nav .dorso{background:var(--noite);border:1px solid var(--ouro);color:var(--ouro-luz)}
+/* FACE — ⚠️ PERGAMINHO FIXO, não var(--sf). No tema escuro a face saía
+   escura igual ao verso e a carta sacada ficava indistinguível das outras:
+   só o brilho denunciava. Carta virada pra cima é PAPEL — nos dois temas.
+   Estes três valores são o pergaminho, o índigo e o ouro da identidade. */
 .carta-nav .frente-nav{
-  background:var(--sf3,var(--sf));border:1px solid var(--ouro);color:var(--ouro-txt);
-  opacity:0;transition:opacity .18s ease;
+  transform:rotateY(180deg);
+  background:#F4EFE2;border:1px solid #B0842E;color:#7A5A1E;
 }
-.carta-nav .frente-nav::after{
-  content:"";position:absolute;inset:3px;border:1px solid var(--ouro);opacity:.35;border-radius:3px;
-}
-.carta-nav .frente-nav .rnn{
-  font-family:var(--fonte-display);font-size:9px;font-weight:600;
-  position:absolute;top:4px;left:0;right:0;text-align:center;
-}
-.carta-nav svg{width:26px;height:26px}
+.carta-nav .frente-nav .rnn{color:#232A52}
 
-.carta-nav:hover{transform:rotate(var(--rot)) translateY(calc((var(--lift) + 7) * -1px))}
-.carta-nav:focus-visible{outline:2px solid var(--ouro);outline-offset:3px;border-radius:7px}
+.carta-nav:hover{transform:rotate(var(--rot)) translateY(calc((var(--lift) + 8) * -1px)) translateX(calc(var(--shift) * 1px))}
+.carta-nav:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:9px}
 
-/* a ativa: sobe, endireita e vira pra cima */
+/* ⭐ A CARTA SACADA — sobe alto o bastante pra NÃO cobrir a vizinha, que
+   era o defeito da primeira versão: a ativa crescia e engolia a carta do
+   lado. Aqui ela sai da fileira e as vizinhas abrem espaço. */
 .carta-nav[aria-current="true"]{
-  transform:rotate(0deg) translateY(-16px) scale(1.14);
+  /* sai do leque PRA FORA (translateX no sentido de --pos), senão ao
+     endireitar ela desliza pro centro e senta em cima da vizinha —
+     foi assim que o IV sumiu atrás do V. */
+  transform:rotate(0deg) translateY(-26px) translateX(calc(var(--pos) * 7px)) scale(1.06);
   z-index:20;
+  transition-delay:0s;
 }
-.carta-nav[aria-current="true"] .dorso{opacity:0}
-.carta-nav[aria-current="true"] .frente-nav{opacity:1}
+.carta-nav[aria-current="true"] .giro{transform:rotateY(180deg)}
+.carta-nav[aria-current="true"] .frente-nav{
+  box-shadow:0 8px 22px -8px rgba(15,17,35,.6), 0 0 0 1px var(--ouro), 0 0 16px -4px var(--ouro);
+}
 
-/* o símbolo do riquinho no meio do leque — é a carta "O baralho" */
+/* o símbolo do riquinho: o meio da mão. Não é carta, não gira. */
 .leque-sig{
-  position:relative;width:44px;height:44px;flex:0 0 auto;margin-inline:6px;
+  position:relative;z-index:15;width:44px;height:44px;flex:0 0 auto;margin:0 8px 4px;
   border:0;padding:0;background:none;cursor:pointer;border-radius:50%;
-  transition:transform .3s cubic-bezier(.2,.7,.3,1);z-index:30;
+  transition:transform .38s cubic-bezier(.22,.68,.3,1);
 }
 .leque-sig svg{width:100%;height:100%;display:block}
-.leque-sig:hover{transform:translateY(-6px) scale(1.06)}
-.leque-sig:focus-visible{outline:2px solid var(--ouro);outline-offset:3px}
-.leque-sig[aria-current="true"]{transform:translateY(-10px) scale(1.12)}
+.leque-sig:hover{transform:translateY(-7px) scale(1.06)}
+.leque-sig:focus-visible{outline:2px solid var(--ouro);outline-offset:4px}
+.leque-sig[aria-current="true"]{transform:translateY(-12px) scale(1.14)}
 .leque-sig[aria-current="true"]::after{
-  content:"";position:absolute;inset:-5px;border-radius:50%;
-  border:1px solid var(--ouro);opacity:.65;
+  content:"";position:absolute;inset:-6px;border-radius:50%;
+  border:1px solid var(--ouro);opacity:.7;
 }
 
 @media (max-width:560px){
-  .carta-nav{width:38px;height:53px;margin-inline:-9px}
-  .carta-nav svg{width:21px;height:21px}
-  .leque-sig{width:38px;height:38px}
-  .leque-mao{padding:24px 14px 10px}
+  .carta-nav{width:40px;height:58px;margin-inline:-5px}
+  .carta-nav svg{width:22px;height:22px;margin-top:4px}
+  .carta-nav .lface .rnn{font-size:8px}
+  .leque-sig{width:38px;height:38px;margin:0 5px 3px}
+  .leque-mao{padding:30px 14px 16px}
 }
 @media (prefers-reduced-motion:reduce){
-  .carta-nav,.leque-sig{transition:none}
+  /* o saque encolhe, mas não some: é ele que diz onde você está */
+  .carta-nav,.leque-sig,.giro{transition-duration:.12s;transition-delay:0s}
 }
 
 .main{min-width:0;display:flex;flex-direction:column}
@@ -2008,8 +2026,10 @@ function montarLeque(){
     var fig = '<svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="2.4" ' +
               'stroke-linejoin="round">' + a.fig + '</svg>';
     b.innerHTML =
-      '<span class="dorso"><span class="rnn">' + a.rn + '</span>' + fig + '</span>' +
-      '<span class="frente-nav"><span class="rnn">' + a.rn + '</span>' + fig + '</span>';
+      '<span class="giro">' +
+        '<span class="lface dorso"><span class="rnn">' + a.rn + '</span>' + fig + '</span>' +
+        '<span class="lface frente-nav"><span class="rnn">' + a.rn + '</span>' + fig + '</span>' +
+      '</span>';
     b.addEventListener("click", function(){ irPara(a.tela); });
     return b;
   }
@@ -2029,6 +2049,30 @@ function montarLeque(){
 
   dir.forEach(function(a,i){ mao.appendChild(carta(a, i + 1)); });
   mao.dataset.pronto = "1";
+}
+
+/* ⭐ A MÃO SE FECHA. Quando você saca uma carta, as vizinhas escorregam
+   NA DIREÇÃO dela pra fechar o vão — é o que a mão de verdade faz.
+
+   ⚠️ Eu fiz ao contrário na primeira tentativa: afastei as vizinhas pra
+   longe, e abriu um buraco feio entre a carta sacada e a seguinte (o VI
+   ficava sozinho no canto). Mão que perde uma carta se aperta, não se
+   espalha.
+
+   O movimento decai com a distância: a vizinha anda 6px, a seguinte 3px,
+   a mais longe 1px. Mão não reorganiza o baralho inteiro.             */
+function abrirBuracoNaMao(tela){
+  var cartas = document.querySelectorAll(".carta-nav");
+  var ativa = -1;
+  cartas.forEach(function(c,i){ if (c.dataset.tela === tela) ativa = i; });
+
+  cartas.forEach(function(c,i){
+    if (ativa < 0){ c.style.setProperty("--shift", 0); return; }
+    var d = i - ativa;
+    if (d === 0){ c.style.setProperty("--shift", 0); return; }
+    var forca = Math.abs(d) === 1 ? 6 : (Math.abs(d) === 2 ? 3 : 1);
+    c.style.setProperty("--shift", d < 0 ? forca : -forca);   // escorrega PARA a sacada
+  });
 }
 
 /* O nome do arcano aparece acima do leque — a carta é pequena demais pra
@@ -2831,6 +2875,7 @@ function irPara(t){
   document.querySelectorAll("#nav button").forEach(function(b){
     b.setAttribute("aria-current", String(b.dataset.tela === t)); });
   nomeDoLeque(t);
+  abrirBuracoNaMao(t);
   el("tituloTela").textContent = TITULOS[t];
   el("periodo").style.display = USA_PERIODO[t] ? "inline-flex" : "none";
   window.scrollTo({ top:0, behavior:"instant" });
