@@ -220,8 +220,17 @@ async function montarDados(env) {
   // a mesma cara de um que ele confere.
   let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived).map(a => {
-    const bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents]
-      .find(v => typeof v === "number");
+    /* ⚠️ O NOME DO CAMPO É O PROBLEMA. Eu testei balance_cents,
+       balance_in_cents e current_balance_cents — e nenhum bateu, então o
+       painel caía na soma e mostrava caixa de -R$ 31 mil.
+       Agora `balance` também entra. Regra de desempate: no Organizze todo
+       dinheiro é INTEIRO em centavos (amount_cents). Se vier com casa
+       decimal, é reais e precisa de ×100. */
+    let bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents,
+                 a.saldo_cents, a.current_balance].find(v => typeof v === "number");
+    if (bruto === undefined && typeof a.balance === "number") {
+      bruto = Number.isInteger(a.balance) ? a.balance : Math.round(a.balance * 100);
+    }
     let s = (bruto !== undefined) ? bruto : null;
     if (s === null) {
       saldoOrigem = "somado";
@@ -374,6 +383,10 @@ async function montarDados(env) {
     hoje: hojeISO,
     // o painel precisa saber se pode confiar no caixa que está mostrando
     saldoOrigem, inicioSaldo: inicio,
+    /* Só os NOMES dos campos que /accounts devolveu — nenhum valor. É o
+       suficiente pra descobrir onde o Organizze guarda o saldo, e some da
+       tela assim que saldoOrigem virar "api". */
+    camposConta: Object.keys(contasRaw[0] || {}),
     mesRef: { ano, mes },
     contas, cartoes, faturas, aPagar, aReceber,
     gastoMes: { totalCents: gasto.totalCents, categorias: gasto.categorias },
