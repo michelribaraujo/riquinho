@@ -59,8 +59,47 @@ function acusarColisoes(html) {
   console.log("✓ sem colisão de nome");
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   GUARDA DE AUSÊNCIA
+
+   A colisão de nome tem guarda; a DELEÇÃO não tinha. Duas vezes eu
+   apaguei código sem querer fatiando o arquivo por índice de string —
+   `s[:ini] + novo + s[fim:]` com o `fim` marcado longe demais:
+
+     · as regras .face das cartas do baralho (a carta ficou espelhada)
+     · o CSS INTEIRO da Mesa (a tela inicial virou HTML cru numa página
+       branca, e o Michel foi quem viu)
+
+   `node --check` não pega: o arquivo continua válido, só que menor.
+   Esta lista é o esqueleto do painel. Se um osso some, o build para.
+   ══════════════════════════════════════════════════════════════════ */
+const OSSOS = [
+  ".mesa-tela{", ".mesa-carta{", ".mesa-cartas{", ".mesa-bola{", ".mesa-topo{",
+  ".leque{", ".leque-mao{", ".carta-nav{", ".giro{", ".dorso{", ".frente-nav{",
+  ".eclipse{", ".tiragem{", ".tira{", ".selo{", ".carimbo{",
+  "function recalcular(", "function renderHoje(", "function renderPagar(",
+  "function renderMes(", "function renderOnde(", "function renderComp(",
+  "function renderSaude(", "function renderSelo(", "function renderSeloMes(",
+  "function montarLeque(", "function montarMesa(", "function abrirMesa(",
+  "function calcularEclipse(", "function conselhoDoDia(", "function ancorarTextoDaBola(",
+  "backface-visibility", "preserveAspectRatio",
+];
+function acusarAusencias(html) {
+  const faltando = OSSOS.filter(o => !html.includes(o));
+  if (faltando.length) {
+    console.error("\n✗ SUMIU DO ARQUIVO — o build parou:\n");
+    faltando.forEach(f => console.error("   · " + f));
+    console.error("\nProvavelmente um replace de bloco levou junto o que não devia.");
+    console.error("Confira o diff antes de seguir.\n");
+    process.exit(1);
+  }
+  console.log("✓ esqueleto completo (" + OSSOS.length + " marcos)");
+}
+
 let html = fs.readFileSync("index.html", "utf8");
 acusarColisoes(html);
+acusarAusencias(html);
 const demo = fs.readFileSync("dados-demo.js", "utf8");
 
 // Na versão publicada o retrato de demonstração não vai junto: o painel lê o Organizze de verdade.

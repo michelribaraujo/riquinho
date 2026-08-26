@@ -528,152 +528,111 @@ a{color:inherit}
 .mini-btn:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
 
 /* ── O LEQUE ────────────────────────────────────────────────────
-   A navegação é uma mão segurando cartas — não uma barra com ícones.
+   A navegação é uma mão de cartas segurada por um ponto só.
 
-   TRÊS TRANSFORMS SEPARADOS, cada um no seu elemento, porque brigar por
-   um transform só foi exatamente o que quebrou a primeira versão:
-     .carta-nav  → o lugar da carta no leque (ângulo, altura, afastamento)
-     .giro       → a virada em si (rotateY), com as duas faces em 3D
-     .leque-sig  → o símbolo, que não é carta e não gira
+   ⚠️ O QUE MUDOU E POR QUÊ (26/08): havia uma elipse escura atrás do
+   leque, e o Michel a chamou de "círculo oval estranho azul" — com
+   razão: um borrão que não é objeto nem superfície, só mancha. Saiu.
+   No lugar, um VÉU de largura total: a página desbota até o rodapé e o
+   leque nasce dentro desse desbotar. Véu é fundo; elipse solta é sujeira.
 
-   E o SAQUE: tocar numa carta não troca de tela na hora. A carta sobe,
-   se endireita, VIRA PRA CIMA — e as vizinhas se afastam pra abrir o
-   buraco de onde ela saiu. É o gesto de sacar carta da mão.            */
+   E não dava pra saber qual carta estava selecionada. Agora são QUATRO
+   sinais somados, porque um só nunca basta: ela sobe e endireita, vira
+   pra cima em pergaminho claro entre cartas escuras, ganha halo de ouro,
+   e o nome dela aparece embaixo — dentro do véu, nunca sobre o conteúdo. */
 .leque{
-  position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:60;
-  display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;
-  max-width:calc(100% - 16px);
+  position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:60;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  pointer-events:none;max-width:calc(100% - 16px);
 }
-/* ⚠️ O RÓTULO DO ARCANO FOI REMOVIDO, de propósito. Ele flutuava ACIMA do
-   leque e caía dentro do conteúdo: em Saúde ficava sobre a barra de
-   assinaturas, em Fluxo sobre o eixo de datas do gráfico, em A pagar sobre
-   a lista. E era redundante — o <h1> do topo já diz em que tela você está,
-   e a carta sacada já mostra qual é. Rótulo que colide e repete é rótulo
-   que sobra. */
-
-/* Sem pílula. O que separa o leque do conteúdo é uma penumbra macia —
-   toolbar com borda dura matava a ideia de mão segurando cartas. */
-/* ⭐ O PONTO DE ANCORAGEM — a correção que faltava.
-   Antes cada carta girava em torno do SEU próprio ponto lá embaixo, e por
-   isso elas só se inclinavam: nunca convergiam. Leque de mão de verdade
-   tem UM ponto só, onde os dedos apertam.
-
-   Como se faz: todas as cartas ficam EMPILHADAS no mesmo lugar (position
-   absolute, mesma coordenada) e cada uma gira em torno de um pivô comum,
-   90px abaixo da base delas. Girar em torno do mesmo ponto é o que abre o
-   leque a partir de um vértice único — e é a diferença entre "cartas
-   espalhadas" e "cartas seguradas". */
-.leque-mao{
-  position:relative;width:250px;height:112px;pointer-events:auto;
+.leque::before{
+  content:"";position:fixed;left:0;right:0;bottom:0;height:210px;z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(to top,
+    var(--bg) 0%, var(--bg) 38%,
+    color-mix(in srgb,var(--bg) 82%,transparent) 62%,
+    color-mix(in srgb,var(--bg) 40%,transparent) 84%, transparent 100%);
 }
-/* ⚠️ A PENUMBRA PRECISA SER LARGA. Com ela curta o texto da página passava
-   entre as cartas e o leque virava sopa — o Michel chamou de "estranha". */
-.leque-mao::before{
-  content:"";position:absolute;left:-58%;right:-58%;top:2%;bottom:-90%;z-index:0;
-  border-radius:50%;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 58%,
-    var(--bg) 0%, var(--bg) 56%,
-    color-mix(in srgb,var(--bg) 70%,transparent) 74%,
-    color-mix(in srgb,var(--bg) 28%,transparent) 88%, transparent 100%);
-}
+.leque-mao{position:relative;width:268px;height:118px;pointer-events:auto}
 
 .carta-nav{
   --pos:0;
-  /* 10deg deixava as cartas quase totalmente sobrepostas — só a quina de
-     cada uma aparecia. 14deg abre o leque o bastante pra cada símbolo se
-     ver, sem soltar as cartas do ponto de ancoragem. */
-  --rot:calc(var(--pos) * 14deg);
-  position:absolute;left:50%;bottom:14px;z-index:1;
+  --rot:calc(var(--pos) * 15deg);
+  position:absolute;left:50%;bottom:26px;z-index:1;
   width:46px;height:66px;margin-left:-23px;
   border:0;padding:0;background:none;cursor:pointer;
-  /* O PIVÔ COMUM: 90px abaixo da base da carta. Não mexer sem entender que
-     é ele que faz o leque convergir — mudou aqui, mudou a mão inteira. */
-  transform-origin:50% calc(100% + 90px);
+  /* O PIVÔ COMUM: é ele que faz o leque convergir num ponto só. */
+  transform-origin:50% calc(100% + 86px);
   transform:rotate(var(--rot));
-  transition:transform .4s cubic-bezier(.22,.68,.3,1);
-  perspective:520px;
+  transition:transform .38s cubic-bezier(.22,.68,.3,1), filter .38s ease;
+  perspective:520px;filter:brightness(.88);
 }
 .giro{
-  position:absolute;inset:0;transform-style:preserve-3d;
-  transform:rotateY(0deg);
-  transition:transform .4s cubic-bezier(.3,.05,.25,1) .1s;
+  position:absolute;inset:0;transform-style:preserve-3d;transform:rotateY(0deg);
+  transition:transform .42s cubic-bezier(.34,.06,.24,1) .06s;
 }
 .carta-nav .lface{
   position:absolute;inset:0;border-radius:6px;display:flex;align-items:center;justify-content:center;
   backface-visibility:hidden;-webkit-backface-visibility:hidden;
-  box-shadow:-3px 4px 11px -5px rgba(10,12,28,.85);
+  box-shadow:-3px 5px 12px -5px rgba(6,8,20,.9);
 }
 .carta-nav .lface .rnn{
-  font-family:var(--fonte-display);font-size:9px;font-weight:600;letter-spacing:.06em;
+  font-family:var(--fonte-display);font-size:9.5px;font-weight:700;letter-spacing:.08em;
   position:absolute;top:4px;left:0;right:0;text-align:center;
 }
 .carta-nav .lface::after{
-  content:"";position:absolute;inset:3px;border:1px solid currentColor;opacity:.28;border-radius:4px;
+  content:"";position:absolute;inset:3px;border:1px solid currentColor;opacity:.3;border-radius:4px;
 }
 .carta-nav svg{width:24px;height:24px;margin-top:5px}
-
-.carta-nav .dorso{background:var(--noite);border:1px solid var(--ouro);color:var(--ouro-luz)}
-/* ⚠️ PERGAMINHO FIXO, não var(--sf): no tema escuro a face saía escura
-   igual ao verso e a carta sacada ficava indistinguível. */
-.carta-nav .frente-nav{
+.dorso{background:var(--noite);border:1px solid var(--ouro);color:var(--ouro-luz)}
+/* ⚠️ PERGAMINHO FIXO: no tema escuro a face saía igual ao verso. */
+.frente-nav{
   transform:rotateY(180deg);
   background:#F4EFE2;border:1px solid #B0842E;color:#7A5A1E;
 }
 .carta-nav .frente-nav .rnn{color:#232A52}
 
-/* ⭐ O SAQUE. A carta não se endireita: ela desliza PRA FORA no próprio
-   eixo — girar em torno do pivô comum faz translateY negativo ser
-   movimento RADIAL, saindo dos dedos. Endireitar tirava ela do leque e
-   fazia ela sentar em cima da vizinha. Só um resquício de rotação some
-   (×.55) pra face ficar legível. */
-.carta-nav:hover{transform:rotate(var(--rot)) translateY(-8px)}
+.carta-nav:hover{transform:rotate(var(--rot)) translateY(-9px);filter:brightness(1)}
 .carta-nav:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:9px}
 
-/* ⚠️ A CARTA SACADA NÃO RECEBE CLIQUE. Erguida e crescida, ela cobria a
-   área clicável da vizinha e o Michel não conseguia acertar a carta do
-   lado. E não faz falta: ela é a tela em que você JÁ ESTÁ — clicar nela
-   não leva a lugar nenhum. Sem pointer-events, o clique atravessa e chega
-   em quem está embaixo. */
 .carta-nav[aria-current="true"]{
-  transform:rotate(calc(var(--rot) * .5)) translateY(-24px) scale(1.04);
-  z-index:20;transition-delay:0s;pointer-events:none;
+  /* sai PRA FORA junto com o endireitar: sem o translateX, ao ficar reta a
+     carta desliza pro centro e cobre a vizinha (o I tapava o II). */
+  transform:rotate(calc(var(--rot) * .28)) translateX(calc(var(--pos) * 6px))
+            translateY(-30px) scale(1.16);
+  z-index:20;transition-delay:0s;filter:brightness(1);
+  pointer-events:none;   /* é a tela onde você já está: não rouba o clique da vizinha */
 }
 .carta-nav[aria-current="true"] .giro{transform:rotateY(180deg)}
 .carta-nav[aria-current="true"] .frente-nav{
-  box-shadow:0 8px 22px -8px rgba(10,12,28,.7), 0 0 0 1px var(--ouro), 0 0 18px -4px var(--ouro);
+  box-shadow:0 10px 26px -8px rgba(6,8,20,.75),
+             0 0 0 1.5px var(--ouro), 0 0 22px -2px var(--ouro-luz);
 }
 
-/* OS DEDOS. O símbolo do riquinho fica NO ponto de ancoragem: é ele que
-   segura o leque. Some do meio da fileira — no vértice ele faz sentido
-   de verdade, e é também o botão que abre a mesa de hoje. */
 .leque-sig{
-  position:absolute;left:50%;bottom:-12px;margin-left:-21px;z-index:25;
-  width:42px;height:42px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%;
-  transition:transform .38s cubic-bezier(.22,.68,.3,1);
+  position:absolute;left:50%;bottom:0;margin-left:-20px;z-index:25;
+  width:40px;height:40px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%;
+  transition:transform .34s cubic-bezier(.22,.68,.3,1);
 }
 .leque-sig svg{width:100%;height:100%;display:block}
-.leque-sig::before{
-  content:"";position:absolute;inset:-7px;border-radius:50%;z-index:-1;
-  background:radial-gradient(circle,var(--bg) 55%,transparent 78%);
-}
-.leque-sig:hover{transform:translateY(-5px) scale(1.07)}
+.leque-sig:hover{transform:translateY(-5px) scale(1.08)}
 .leque-sig:focus-visible{outline:2px solid var(--ouro);outline-offset:4px}
-.leque-sig[aria-current="true"]{transform:translateY(-6px) scale(1.12)}
-.leque-sig[aria-current="true"]::after{
-  content:"";position:absolute;inset:-6px;border-radius:50%;
-  border:1px solid var(--ouro);opacity:.75;
+
+.leque-nome{
+  font-family:var(--fonte-num);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ouro-txt);white-space:nowrap;height:13px;line-height:13px;opacity:.9;
 }
 
 @media (max-width:560px){
-  .leque-mao{width:214px;height:100px}
-  .carta-nav{width:41px;height:59px;margin-left:-20.5px;bottom:12px;
-    transform-origin:50% calc(100% + 78px)}
+  .leque-mao{width:236px;height:108px}
+  .carta-nav{width:41px;height:59px;margin-left:-20.5px;bottom:24px;
+    transform-origin:50% calc(100% + 76px)}
   .carta-nav svg{width:21px;height:21px;margin-top:4px}
   .carta-nav .lface .rnn{font-size:8px}
-  .leque-sig{width:38px;height:38px;margin-left:-19px;bottom:-10px}
+  .leque-sig{width:36px;height:36px;margin-left:-18px;bottom:0}
+  .leque::before{height:180px}
 }
 @media (prefers-reduced-motion:reduce){
-  /* o saque encolhe, mas não some: é ele que diz onde você está */
   .carta-nav,.leque-sig,.giro{transition-duration:.12s;transition-delay:0s}
 }
 
@@ -1539,6 +1498,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
   <!-- ================= O LEQUE ================= -->
   <nav class="leque" id="nav" aria-label="Navegação">
     <div class="leque-mao" id="lequeMao"></div>
+    <span class="leque-nome" id="lequeNome"></span>
   </nav>
 
 </div>
@@ -3505,6 +3465,14 @@ function fecharMesa(destino){
    Estado: carta virada PRA BAIXO = tela onde você não está. Virada PRA CIMA,
    erguida e endireitada = onde você está agora. É a metáfora inteira do
    painel resumida num gesto que qualquer pessoa que já jogou baralho entende. */
+/* O nome do arcano em jogo, ABAIXO da mão e dentro do véu. A versão de
+   antes punha ele ACIMA e ele caía dentro do conteúdo das telas. */
+function nomeDoLeque(tela){
+  var no = el("lequeNome"); if (!no) return;
+  var a = ARCANOS.filter(function(x){ return x.tela === tela; })[0];
+  no.textContent = a ? a.rn + " · " + a.nome : "";
+}
+
 function montarLeque(){
   var mao = el("lequeMao"); if (!mao || mao.dataset.pronto) return;
 
@@ -4359,6 +4327,7 @@ function irPara(t){
   document.querySelectorAll(".tela").forEach(function(s){ s.hidden = (s.id !== "tela-" + t); });
   document.querySelectorAll("#nav button").forEach(function(b){
     b.setAttribute("aria-current", String(b.dataset.tela === t)); });
+  nomeDoLeque(t);
   el("tituloTela").textContent = TITULOS[t];
   el("periodo").style.display = USA_PERIODO[t] ? "inline-flex" : "none";
   window.scrollTo({ top:0, behavior:"instant" });
