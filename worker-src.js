@@ -121,6 +121,29 @@ function ultimoDia(ano, mes) { return new Date(ano, mes, 0).getDate(); }
    Sai daqui o objeto DADOS. Nenhuma conta de negócio acontece aqui além de
    agregação bruta: o recalcular() do painel é quem define os números derivados.
    ============================================================================ */
+
+/* ⚠️⚠️ O BUG QUE ENVENENOU O PAINEL INTEIRO ⚠️⚠️
+   Durante semanas isto foi `t.account_type === "CreditCard"`. A API REST do
+   Organizze NÃO DEVOLVE `account_type` em /transactions — ela devolve
+   `credit_card_id`. Ou seja: o teste era SEMPRE FALSO e toda compra de
+   cartão passou a contar como movimento de conta bancária.
+
+   Quatro sintomas, uma causa (26/08/2026):
+     · caixa de -R$ 31.372,77 quando o real era +R$ 2.941,23 — cada compra
+       de cartão era descontada do saldo do banco
+     · "A pagar" com 73 contas e R$ 27.646,25 num mês cujo gasto real foi
+       R$ 12.625,57 — cada compra virava uma conta a pagar, e a fatura era
+       contada por cima
+     · gasto do mês inflado na mesma proporção
+     · a lista de parcelas SEMPRE VAZIA, porque o teste invertido descartava
+       justamente as compras parceladas
+
+   Nunca mais testar tipo de conta por um campo que a API não documenta.
+   Cartão se reconhece pelo credit_card_id.                               */
+function ehCartao(t) {
+  return !!(t.credit_card_id || t.credit_card_invoice_id || t.account_type === "CreditCard");
+}
+
 async function montarDados(env) {
   const hoje = new Date();
   const hojeISO = iso(hoje);
@@ -204,7 +227,7 @@ async function montarDados(env) {
       saldoOrigem = "somado";
       s = 0;
       for (const t of lanc) {
-        if (t.account_type === "CreditCard") continue;
+        if (ehCartao(t)) continue;
         if (t.account_id === a.id && t.paid) s += t.amount_cents;
       }
     }
@@ -219,7 +242,7 @@ async function montarDados(env) {
   const limite = iso(addMeses(hoje, 3));
   const aPagar = [], aReceber = [];
   for (const t of lanc) {
-    if (t.paid || t.account_type === "CreditCard") continue;
+    if (t.paid || ehCartao(t)) continue;
     const d = String(t.date).slice(0, 10);
     if (d > limite) continue;
     if (INTERNA(t)) continue;
@@ -320,7 +343,7 @@ async function montarDados(env) {
   // Parcelas de cartão ainda a vencer (compras com total_installments > 1)
   const parcMapa = {};
   for (const t of lanc) {
-    if (t.account_type !== "CreditCard" || !(t.total_installments > 1)) continue;
+    if (!ehCartao(t) || !(t.total_installments > 1)) continue;
     if (temTag(t, "Dívida")) continue; // já contada como dívida — não contar duas vezes
     const d = String(t.date).slice(0, 10);
     if (d < hojeISO) continue;

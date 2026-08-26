@@ -121,6 +121,29 @@ function ultimoDia(ano, mes) { return new Date(ano, mes, 0).getDate(); }
    Sai daqui o objeto DADOS. Nenhuma conta de negócio acontece aqui além de
    agregação bruta: o recalcular() do painel é quem define os números derivados.
    ============================================================================ */
+
+/* ⚠️⚠️ O BUG QUE ENVENENOU O PAINEL INTEIRO ⚠️⚠️
+   Durante semanas isto foi `t.account_type === "CreditCard"`. A API REST do
+   Organizze NÃO DEVOLVE `account_type` em /transactions — ela devolve
+   `credit_card_id`. Ou seja: o teste era SEMPRE FALSO e toda compra de
+   cartão passou a contar como movimento de conta bancária.
+
+   Quatro sintomas, uma causa (26/08/2026):
+     · caixa de -R$ 31.372,77 quando o real era +R$ 2.941,23 — cada compra
+       de cartão era descontada do saldo do banco
+     · "A pagar" com 73 contas e R$ 27.646,25 num mês cujo gasto real foi
+       R$ 12.625,57 — cada compra virava uma conta a pagar, e a fatura era
+       contada por cima
+     · gasto do mês inflado na mesma proporção
+     · a lista de parcelas SEMPRE VAZIA, porque o teste invertido descartava
+       justamente as compras parceladas
+
+   Nunca mais testar tipo de conta por um campo que a API não documenta.
+   Cartão se reconhece pelo credit_card_id.                               */
+function ehCartao(t) {
+  return !!(t.credit_card_id || t.credit_card_invoice_id || t.account_type === "CreditCard");
+}
+
 async function montarDados(env) {
   const hoje = new Date();
   const hojeISO = iso(hoje);
@@ -204,7 +227,7 @@ async function montarDados(env) {
       saldoOrigem = "somado";
       s = 0;
       for (const t of lanc) {
-        if (t.account_type === "CreditCard") continue;
+        if (ehCartao(t)) continue;
         if (t.account_id === a.id && t.paid) s += t.amount_cents;
       }
     }
@@ -219,7 +242,7 @@ async function montarDados(env) {
   const limite = iso(addMeses(hoje, 3));
   const aPagar = [], aReceber = [];
   for (const t of lanc) {
-    if (t.paid || t.account_type === "CreditCard") continue;
+    if (t.paid || ehCartao(t)) continue;
     const d = String(t.date).slice(0, 10);
     if (d > limite) continue;
     if (INTERNA(t)) continue;
@@ -320,7 +343,7 @@ async function montarDados(env) {
   // Parcelas de cartão ainda a vencer (compras com total_installments > 1)
   const parcMapa = {};
   for (const t of lanc) {
-    if (t.account_type !== "CreditCard" || !(t.total_installments > 1)) continue;
+    if (!ehCartao(t) || !(t.total_installments > 1)) continue;
     if (temTag(t, "Dívida")) continue; // já contada como dívida — não contar duas vezes
     const d = String(t.date).slice(0, 10);
     if (d < hojeISO) continue;
@@ -521,13 +544,12 @@ a{color:inherit}
   display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;
   max-width:calc(100% - 16px);
 }
-.leque-nome{
-  font-family:var(--fonte-num);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;
-  color:var(--ouro-txt);opacity:0;transition:opacity .3s ease;
-  padding:3px 11px;border-radius:20px;background:var(--sf);border:1px solid var(--line);
-  white-space:nowrap;
-}
-.leque-nome.on{opacity:1}
+/* ⚠️ O RÓTULO DO ARCANO FOI REMOVIDO, de propósito. Ele flutuava ACIMA do
+   leque e caía dentro do conteúdo: em Saúde ficava sobre a barra de
+   assinaturas, em Fluxo sobre o eixo de datas do gráfico, em A pagar sobre
+   a lista. E era redundante — o <h1> do topo já diz em que tela você está,
+   e a carta sacada já mostra qual é. Rótulo que colide e repete é rótulo
+   que sobra. */
 
 /* Sem pílula. O que separa o leque do conteúdo é uma penumbra macia —
    toolbar com borda dura matava a ideia de mão segurando cartas. */
@@ -547,7 +569,7 @@ a{color:inherit}
 /* ⚠️ A PENUMBRA PRECISA SER LARGA. Com ela curta o texto da página passava
    entre as cartas e o leque virava sopa — o Michel chamou de "estranha". */
 .leque-mao::before{
-  content:"";position:absolute;left:-64%;right:-64%;top:-30%;bottom:-90%;z-index:0;
+  content:"";position:absolute;left:-58%;right:-58%;top:2%;bottom:-90%;z-index:0;
   border-radius:50%;pointer-events:none;
   background:radial-gradient(ellipse at 50% 58%,
     var(--bg) 0%, var(--bg) 56%,
@@ -1239,8 +1261,8 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
 /* o leque flutua por cima do conteúdo — o fim da página precisa de ar
    embaixo, senão a última linha some atrás da mão de cartas */
-.main{padding-bottom:168px}
-@media (max-width:560px){ .main{padding-bottom:148px} }
+.main{padding-bottom:196px}
+@media (max-width:560px){ .main{padding-bottom:172px} }
 
 @media print{.leque,.topo .btn-sync{display:none}}
 </style>
@@ -1491,7 +1513,6 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
   <!-- ================= O LEQUE ================= -->
   <nav class="leque" id="nav" aria-label="Navegação">
-    <span class="leque-nome" id="lequeNome"></span>
     <div class="leque-mao" id="lequeMao"></div>
   </nav>
 
@@ -3167,8 +3188,14 @@ function renderPagar(){
     { rot:"Você já marcou", val:C(m.pagosCents), pe:m.qtdPagas + " de " + m.qtd, cls: m.qtdPagas ? "bom" : "" },
     { rot:"Falta pagar", val:C(m.faltaCents), pe: m.faltaCents > 0 ? "ainda em aberto" : "tudo marcado",
       cls: m.faltaCents > 0 ? "" : "bom" },
+    /* ⚠️ "nada em aberto" com 73 contas vencidas na lista embaixo é
+       contradição na cara do leitor. Sem próxima e com falta a pagar
+       significa que TUDO já venceu — e é isso que tem que estar escrito. */
     { rot:"Próxima", val: m.proxima ? C(Math.abs(m.proxima.cents)) : "—",
-      pe: m.proxima ? m.proxima.desc + " · " + m.proxima.data.slice(8,10) + "/" + m.proxima.data.slice(5,7) : "nada em aberto" }
+      pe: m.proxima
+            ? m.proxima.desc + " · " + m.proxima.data.slice(8,10) + "/" + m.proxima.data.slice(5,7)
+            : (m.faltaCents > 0 ? "todas já venceram" : "nada em aberto"),
+      cls: (!m.proxima && m.faltaCents > 0) ? "ruim" : "" }
   ]);
 
   var frac = m.totalCents > 0 ? m.pagosCents / m.totalCents : 0;
@@ -3492,15 +3519,6 @@ function abrirBuracoNaMao(tela){
   });
 }
 
-/* O nome do arcano aparece acima do leque — a carta é pequena demais pra
-   caber o nome dentro dela, e sem nome o leque vira adivinhação. */
-function nomeDoLeque(tela){
-  var no = el("lequeNome"); if (!no) return;
-  var a = ARCANOS.filter(function(x){ return x.tela === tela; })[0];
-  no.textContent = a ? a.rn + " · " + a.nome : (tela === "baralho" ? "o baralho" : "");
-  no.classList.toggle("on", !!no.textContent);
-}
-
 function renderHoje(){
   var c = CALC;
 
@@ -3795,7 +3813,7 @@ function gerarInsights(c){
 /* ----------------------------------------------------------- TELA: MÊS ---- */
 function renderMes(){
   var c = CALC;
-  el("mEscopo").textContent = "Projeção dos próximos 30 dias a partir de hoje · cartões em tempo real";
+  el("mEscopo").textContent = "Projeção dos próximos 3 meses a partir de hoje · cartões em tempo real";
 
   faixa(el("mFaixa"), [
     { rot:"Entra no mês",  val:C(c.rendaMesCents),  pe:"já sem transferência interna" },
@@ -3848,7 +3866,10 @@ function menorSaldo(){
 }
 
 function linhaSaldo(svg, pts){
-  var W=720, H=240, L=52, R=8, T=14, B=26;
+  /* ⚠️ T=14 era apertado demais: os rótulos dos marcos ficam em T-6 e
+     batiam no primeiro rótulo do eixo Y ("11,6k" colado em "−43,9k").
+     T=30 dá a faixa que os marcos precisam pra respirar. */
+  var W=720, H=252, L=54, R=10, T=30, B=26;
   var pw = W-L-R, ph = H-T-B;
   var vals = pts.map(function(p){ return p.saldo; });
   var min = Math.min.apply(null, vals.concat([0])), max = Math.max.apply(null, vals.concat([0]));
@@ -3903,7 +3924,7 @@ function linhaSaldo(svg, pts){
     h += '<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+yy.toFixed(1)+
          '" stroke="var(--ouro)" stroke-width="1" opacity=".38"/>';
     h += '<circle cx="'+xx.toFixed(1)+'" cy="'+yy.toFixed(1)+'" r="3" fill="var(--ouro)"/>';
-    h += '<text class="eixo" x="'+xx.toFixed(1)+'" y="'+(T-3)+'" text-anchor="middle" fill="var(--ouro-txt)">'+
+    h += '<text class="eixo" x="'+xx.toFixed(1)+'" y="'+(T-9)+'" text-anchor="middle" fill="var(--ouro-txt)">'+
          Ck(o.p.evento)+'</text>';
   });
 
@@ -4275,7 +4296,6 @@ function irPara(t){
   document.querySelectorAll(".tela").forEach(function(s){ s.hidden = (s.id !== "tela-" + t); });
   document.querySelectorAll("#nav button").forEach(function(b){
     b.setAttribute("aria-current", String(b.dataset.tela === t)); });
-  nomeDoLeque(t);
   el("tituloTela").textContent = TITULOS[t];
   el("periodo").style.display = USA_PERIODO[t] ? "inline-flex" : "none";
   window.scrollTo({ top:0, behavior:"instant" });
