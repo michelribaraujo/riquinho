@@ -836,6 +836,128 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+
+/* ══════════ A MESA DA CIGANA — a entrada do dia ══════════════════
+   Aparece UMA VEZ por dia, na primeira abertura. Depois some e o painel
+   segue sóbrio. Ritual repetido vira papel de parede: a mesa vale porque
+   é cerimônia, não porque é decoração.
+
+   ⚠️ TODA classe e TODO id daqui têm prefixo (.mesa-* / #mz*). Já quebrei
+   este painel duas vezes reusando nome que existia (renderSelo, .face) —
+   e cena inteira colidindo com o app seria o pior lugar pra descobrir. */
+.mesa-tela{
+  position:fixed;inset:0;z-index:200;background:#0B0D1E;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  overflow:hidden;opacity:0;pointer-events:none;
+  transition:opacity .8s ease;
+}
+/* ⚠️ ESTA LINHA É OBRIGATÓRIA. O atributo [hidden] esconde via
+   display:none da folha do navegador — e o display:flex acima, por ser
+   mais específico, ganhava dele. Resultado: a mesa "fechava" mas
+   continuava na tela por cima do painel, invisível só no papel. */
+.mesa-tela[hidden]{display:none}
+.mesa-tela.on{opacity:1;pointer-events:auto}
+.mesa-tela.saindo{opacity:0;transition:opacity .55s ease}
+.mesa-fundo{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+.mesa-topo{
+  position:absolute;top:clamp(16px,3vh,34px);left:0;right:0;z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding-inline:20px;
+}
+.mesa-dia{font-family:var(--fonte-num);font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:#C9A24A}
+.mesa-frase{font-size:clamp(13px,1.5vw,16px);color:#C9C2AE;line-height:1.5;
+  text-align:center;max-width:min(560px,86%)}
+.mesa-frase b{color:#FFF3D6;font-weight:600}
+
+/* ⚠️ A largura é a da ESFERA, não do gosto: 152px é o que cabe dentro do
+   vidro sem o texto vazar pelas bordas. "em 21 dias" já estourou aqui. */
+.mesa-bola{position:absolute;left:50%;top:43.5%;transform:translate(-50%,-50%);
+  text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none}
+.mesa-bola .k{font-family:var(--fonte-num);font-size:9px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.2em;color:#FFDFA0;display:block;
+  text-shadow:0 1px 6px rgba(6,8,20,.95),0 0 16px rgba(6,8,20,.8)}
+.mesa-bola .v{font-family:var(--fonte-num);font-size:clamp(17px,2.1vw,27px);font-weight:600;
+  line-height:1.16;letter-spacing:-.03em;color:#FFFDF6;display:block;margin-top:4px;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 8px rgba(6,8,20,.95),0 0 26px rgba(6,8,20,.85),0 0 44px rgba(10,14,40,.7)}
+
+.mesa-cartas{
+  position:relative;z-index:5;margin-inline:auto;
+  display:flex;align-items:flex-end;justify-content:center;
+  gap:clamp(3px,.8vw,11px);width:min(94%,1020px);
+  padding-bottom:clamp(74px,9vh,104px);
+}
+.mesa-carta{
+  --g:0;--dy:0;
+  flex:1 1 0;min-width:0;max-width:150px;
+  background:#F4EFE2;border:1.5px solid #B0842E;border-radius:9px;
+  padding:clamp(8px,1vw,13px) clamp(5px,.7vw,9px) clamp(9px,1.1vw,14px);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  color:#232A52;position:relative;cursor:pointer;
+  transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px));
+  box-shadow:0 14px 26px -14px rgba(10,6,14,.9);
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),box-shadow .3s ease;
+}
+.mesa-carta:hover{
+  transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px - 12px)) scale(1.03);
+  box-shadow:0 20px 34px -14px rgba(10,6,14,.95),0 0 20px -6px var(--ouro);
+}
+.mesa-carta:focus-visible{outline:2px solid var(--ouro);outline-offset:4px}
+.mesa-carta::after{content:"";position:absolute;inset:4px;border:1px solid #B0842E;
+  opacity:.4;border-radius:6px;pointer-events:none}
+.mesa-carta .rn{font-family:var(--fonte-display);font-size:clamp(12px,1.15vw,16px);
+  font-weight:600;color:#8A6420;line-height:1}
+.mesa-carta .fg{color:#B0842E;margin:clamp(4px,.7vw,9px) 0 clamp(3px,.5vw,7px)}
+.mesa-carta .fg svg{width:clamp(24px,2.8vw,38px);height:clamp(24px,2.8vw,38px);display:block}
+.mesa-carta .vv{font-family:var(--fonte-num);font-size:clamp(11px,1.05vw,15px);font-weight:600;
+  color:#232A52;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.mesa-carta .lg{font-family:var(--fonte-num);font-size:clamp(7px,.62vw,9px);
+  text-transform:uppercase;letter-spacing:.1em;color:#847F76;white-space:nowrap}
+.mesa-carta .nm{font-family:var(--fonte-display);font-size:clamp(10px,.95vw,13.5px);
+  font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#5C5A64;
+  margin-top:clamp(3px,.5vw,6px);white-space:nowrap}
+
+.mesa-entrar{
+  position:absolute;bottom:clamp(20px,3.2vh,34px);left:50%;transform:translateX(-50%);
+  z-index:6;font-family:var(--fonte-num);font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:#C9A24A;background:transparent;
+  border:1px solid rgba(201,162,74,.45);border-radius:22px;padding:9px 22px;cursor:pointer;
+  transition:background .25s ease,color .25s ease,border-color .25s ease;
+}
+.mesa-entrar:hover{background:rgba(201,162,74,.14);color:#F0D48A;border-color:#C9A24A}
+.mesa-entrar:focus-visible{outline:2px solid var(--ouro);outline-offset:3px}
+
+.mesa-rever{
+  display:inline-flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;
+  font-family:var(--fonte-num);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ouro-txt);padding:4px 0;margin-bottom:2px;
+}
+.mesa-rever:hover{color:var(--ouro)}
+.mesa-rever:focus-visible{outline:2px solid var(--ouro);outline-offset:3px;border-radius:4px}
+
+@keyframes mz-tremula{0%,100%{transform:scaleY(1) scaleX(1);opacity:1}
+  25%{transform:scaleY(1.11) scaleX(.93);opacity:.93}
+  50%{transform:scaleY(.94) scaleX(1.05);opacity:1}
+  75%{transform:scaleY(1.06) scaleX(.97);opacity:.96}}
+@keyframes mz-pisca{0%,100%{opacity:.85}50%{opacity:.25}}
+@keyframes mz-pulsa{0%,100%{opacity:.5}50%{opacity:.9}}
+@keyframes mz-fumaca{0%{opacity:0;transform:translateY(0) scaleX(1)}
+  30%{opacity:.5}100%{opacity:0;transform:translateY(-38px) scaleX(2.1)}}
+.mesa-chama{transform-origin:50% 100%;animation:mz-tremula 1.6s ease-in-out infinite}
+.mesa-estrela{animation:mz-pisca 3.4s ease-in-out infinite}
+.mesa-halo{animation:mz-pulsa 5s ease-in-out infinite}
+.mesa-fumo{animation:mz-fumaca 5.5s ease-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .mesa-chama,.mesa-estrela,.mesa-halo,.mesa-fumo{animation:none}
+  .mesa-fumo{opacity:.25}
+}
+@media (max-width:720px){
+  .mesa-cartas{flex-wrap:wrap;gap:8px;width:94%;padding-bottom:88px}
+  .mesa-carta{flex:0 0 calc(33.333% - 8px);max-width:none;transform:none}
+  .mesa-carta:hover{transform:translateY(-8px)}
+}
+
 /* ── O BARALHO ─────────────────────────────────────────────────
    A abertura do painel. Seis arcanos: você toca, a carta vira, e só então
    a tela abre. A virada não é enfeite — é o tempo que o Michel precisa pra
@@ -1104,6 +1226,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
     <!-- ---------- TELA: HOJE ---------- -->
     <section class="tela" id="tela-baralho" hidden>
+      <button class="mesa-rever" id="btnRever" type="button">✦ rever a mesa de hoje</button>
       <p class="escopo" id="bEscopo"></p>
       <div class="baralho" id="bBaralho"></div>
     </section>
@@ -1314,6 +1437,932 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
     <div class="leque-mao" id="lequeMao"></div>
   </nav>
 
+</div>
+
+
+<!-- ══════════ A MESA DA CIGANA — entrada do dia ══════════ -->
+<div class="mesa-tela" id="mesaTela" role="dialog" aria-modal="true" aria-label="A mesa de hoje" hidden>
+<svg class="mesa-fundo" viewBox="0 70 1180 630" preserveAspectRatio="xMidYMax slice" role="img"
+     aria-label="A mesa da cigana montada sob a lua">
+
+  <defs>
+    <radialGradient id="mz-ceu" cx="50%" cy="14%" r="94%">
+      <stop offset="0%" stop-color="#242A55"/><stop offset="38%" stop-color="#161A3A"/>
+      <stop offset="72%" stop-color="#0D1026"/><stop offset="100%" stop-color="#070915"/>
+    </radialGradient>
+    <linearGradient id="mz-viaLactea" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3A4278" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#4A5390" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#3A4278" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- TEXTURA PROCEDURAL: é ela que tira o aspecto de vetor chapado -->
+    <filter id="mz-grao" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="4" seed="7" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="nb"/>
+      <feComponentTransfer in="nb" result="nc">
+        <feFuncA type="linear" slope=".34" intercept="0"/>
+      </feComponentTransfer>
+      <feComposite in="nc" in2="SourceAlpha" operator="in" result="ng"/>
+      <feBlend in="SourceGraphic" in2="ng" mode="multiply"/>
+    </filter>
+    <filter id="mz-graoFino" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="3" seed="3" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="nb"/>
+      <feComponentTransfer in="nb" result="nc"><feFuncA type="linear" slope=".2"/></feComponentTransfer>
+      <feComposite in="nc" in2="SourceAlpha" operator="in" result="ng"/>
+      <feBlend in="SourceGraphic" in2="ng" mode="multiply"/>
+    </filter>
+
+    <!-- ILUMINAÇÃO COMPUTADA: a luz das velas incide de verdade sobre o pano -->
+    <filter id="mz-luzDaVela" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="5" result="relevo"/>
+      <feDiffuseLighting in="relevo" surfaceScale="2.6" diffuseConstant="1" lighting-color="#FFD9A0" result="luz">
+        <fePointLight x="300" y="470" z="90"/>
+      </feDiffuseLighting>
+      <feComposite in="luz" in2="SourceAlpha" operator="in" result="luzR"/>
+      <feBlend in="SourceGraphic" in2="luzR" mode="multiply"/>
+    </filter>
+    <filter id="mz-metal" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency=".12" numOctaves="2" seed="9" result="r"/>
+      <feSpecularLighting in="r" surfaceScale="1.6" specularConstant="1" specularExponent="22"
+                          lighting-color="#FFF3D6" result="sp">
+        <fePointLight x="-40" y="-70" z="120"/>
+      </feSpecularLighting>
+      <feComposite in="sp" in2="SourceAlpha" operator="in" result="spR"/>
+      <feComposite in="SourceGraphic" in2="spR" operator="arithmetic" k1="0" k2="1" k3=".85" k4="0"/>
+    </filter>
+    <filter id="mz-borrar3"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="mz-borrar4"><feGaussianBlur stdDeviation="4.5"/></filter>
+    <filter id="mz-borrar8"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="mz-borrar16"><feGaussianBlur stdDeviation="16"/></filter>
+
+    <radialGradient id="mz-luaHalo"><stop offset="0%" stop-color="#F0D48A" stop-opacity=".34"/>
+      <stop offset="52%" stop-color="#F0D48A" stop-opacity=".07"/>
+      <stop offset="100%" stop-color="#F0D48A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-luaCorpo" cx="34%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#FFFAEA"/><stop offset="55%" stop-color="#F0E2BC"/>
+      <stop offset="100%" stop-color="#C9B896"/></radialGradient>
+    <radialGradient id="mz-luzQuente"><stop offset="0%" stop-color="#FFC97A" stop-opacity=".55"/>
+      <stop offset="45%" stop-color="#E8894A" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#7A2E22" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-fogo" cx="50%" cy="72%" r="62%">
+      <stop offset="0%" stop-color="#FFD79A" stop-opacity=".5"/>
+      <stop offset="45%" stop-color="#C4693F" stop-opacity=".2"/>
+      <stop offset="100%" stop-color="#7A2E22" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-chamaG" cx="50%" cy="72%" r="62%">
+      <stop offset="0%" stop-color="#FFFAE8"/><stop offset="34%" stop-color="#FFC964"/>
+      <stop offset="72%" stop-color="#F08A32" stop-opacity=".75"/>
+      <stop offset="100%" stop-color="#E8722C" stop-opacity="0"/></radialGradient>
+
+    <!-- CERA: claro na esquerda (chama), núcleo escuro, luz refletida na direita -->
+    <linearGradient id="mz-ceraA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFF6E2"/><stop offset="26%" stop-color="#EFE0C2"/>
+      <stop offset="62%" stop-color="#BFAA85"/><stop offset="86%" stop-color="#9E8A69"/>
+      <stop offset="100%" stop-color="#C9B48C"/></linearGradient>
+    <linearGradient id="mz-ceraB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F8DCD2"/><stop offset="28%" stop-color="#E6BFB2"/>
+      <stop offset="64%" stop-color="#B58676"/><stop offset="88%" stop-color="#95685C"/>
+      <stop offset="100%" stop-color="#BE8C7E"/></linearGradient>
+    <radialGradient id="mz-poca" cx="42%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#FFD9A0"/><stop offset="60%" stop-color="#E8C79A"/>
+      <stop offset="100%" stop-color="#B99C72"/></radialGradient>
+
+    <!-- OURO metálico de verdade: banda clara estreita entre dois escuros -->
+    <linearGradient id="mz-ouroFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7A5514"/><stop offset="22%" stop-color="#D9B45C"/>
+      <stop offset="42%" stop-color="#FFF0BE"/><stop offset="58%" stop-color="#E0BC68"/>
+      <stop offset="80%" stop-color="#8A6420"/><stop offset="100%" stop-color="#C9A24A"/></linearGradient>
+    <linearGradient id="mz-ouroCanto" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4E340B"/><stop offset="50%" stop-color="#9A7526"/>
+      <stop offset="100%" stop-color="#4E340B"/></linearGradient>
+
+    <!-- PANO: pooling de luz sob a bola, escurecendo pras bordas -->
+    <radialGradient id="mz-tampo" cx="50%" cy="30%" r="76%">
+      <stop offset="0%" stop-color="#A34248"/><stop offset="30%" stop-color="#8A3238"/>
+      <stop offset="66%" stop-color="#66242A"/><stop offset="100%" stop-color="#3A141A"/></radialGradient>
+    <linearGradient id="mz-saia" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7A2B31"/><stop offset="38%" stop-color="#5C1F26"/>
+      <stop offset="100%" stop-color="#2E0F16"/></linearGradient>
+    <!-- ⭐ A TRAMA. Dois conjuntos de fios cruzados — urdidura clara, trama
+         escura. É literalmente como tecido é feito, e é por isso que lê como
+         tecido. Ruído aleatório nunca vai ler: falta a direção. -->
+    <pattern id="mz-trama" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+      <path d="M0 1.6 h7 M0 5.1 h7" stroke="#FFD9B0" stroke-width=".9" opacity=".075"/>
+      <path d="M1.6 0 v7 M5.1 0 v7" stroke="#1C060C" stroke-width=".9" opacity=".1"/>
+      <path d="M0 3.4 h7" stroke="#1C060C" stroke-width=".5" opacity=".05"/>
+    </pattern>
+    <linearGradient id="mz-luzSaia" x1="0" y1="0" x2="1" y2="0.25">
+      <stop offset="0%" stop-color="#FFC58A" stop-opacity=".22"/>
+      <stop offset="26%" stop-color="#FFC58A" stop-opacity=".07"/>
+      <stop offset="62%" stop-color="#FFC58A" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFC58A" stop-opacity=".04"/></linearGradient>
+    <linearGradient id="mz-veludo" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#FFC58A" stop-opacity=".16"/>
+      <stop offset="46%" stop-color="#FFC58A" stop-opacity=".05"/>
+      <stop offset="100%" stop-color="#FFC58A" stop-opacity="0"/></linearGradient>
+    <pattern id="mz-bordado" width="38" height="38" patternUnits="userSpaceOnUse">
+      <path d="M19 5 L21.4 16.6 L33 19 L21.4 21.4 L19 33 L16.6 21.4 L5 19 L16.6 16.6 Z"
+            fill="none" stroke="#E0BC68" stroke-width=".6" opacity=".24"/>
+      <circle cx="19" cy="19" r="1.1" fill="#E0BC68" opacity=".2"/>
+      <circle cx="0" cy="0" r="1.4" fill="none" stroke="#E0BC68" stroke-width=".4" opacity=".16"/>
+    </pattern>
+
+    <!-- CRISTAL: vidro com refração e núcleo escuro -->
+    <radialGradient id="mz-cristal" cx="33%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#FFF6DC" stop-opacity=".62"/>
+      <stop offset="20%" stop-color="#A9BCE8" stop-opacity=".38"/>
+      <stop offset="52%" stop-color="#3B4479" stop-opacity=".78"/>
+      <stop offset="82%" stop-color="#1A1E42"/><stop offset="100%" stop-color="#0C0F26"/></radialGradient>
+    <radialGradient id="mz-brilhoBola"><stop offset="0%" stop-color="#CBD8FF" stop-opacity=".4"/>
+      <stop offset="55%" stop-color="#8EA0E0" stop-opacity=".10"/>
+      <stop offset="100%" stop-color="#8EA0E0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-vinheta" cx="50%" cy="52%" r="72%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="62%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="88%" stop-color="#04060F" stop-opacity=".42"/>
+      <stop offset="100%" stop-color="#04060F" stop-opacity=".72"/></radialGradient>
+    <radialGradient id="mz-caustica"><stop offset="0%" stop-color="#DCE6FF" stop-opacity=".55"/>
+      <stop offset="60%" stop-color="#9AAEF0" stop-opacity=".14"/>
+      <stop offset="100%" stop-color="#9AAEF0" stop-opacity="0"/></radialGradient>
+
+    <!-- MADEIRA do baú -->
+    <linearGradient id="mz-madeira" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8A5A2E"/><stop offset="30%" stop-color="#6B4526"/>
+      <stop offset="70%" stop-color="#4A2E18"/><stop offset="100%" stop-color="#5E3A20"/></linearGradient>
+    <linearGradient id="mz-madeiraTampa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9C6A38"/><stop offset="45%" stop-color="#7A4E28"/>
+      <stop offset="100%" stop-color="#553318"/></linearGradient>
+    <!-- PELE do pandeiro -->
+    <radialGradient id="mz-pele" cx="38%" cy="32%" r="76%">
+      <stop offset="0%" stop-color="#FBEFD2"/><stop offset="52%" stop-color="#E3CFA4"/>
+      <stop offset="100%" stop-color="#B99C72"/></radialGradient>
+    <linearGradient id="mz-aroPand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A06A34"/><stop offset="40%" stop-color="#7A4A22"/>
+      <stop offset="100%" stop-color="#4E2C12"/></linearGradient>
+    <!-- VIDRO da lanterna -->
+    <linearGradient id="mz-vidro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE0A0" stop-opacity=".85"/>
+      <stop offset="55%" stop-color="#F0A64E" stop-opacity=".7"/>
+      <stop offset="100%" stop-color="#B8642A" stop-opacity=".55"/></linearGradient>
+  </defs>
+
+  <!-- ═══ CÉU ═══ -->
+  <rect y="70" width="1180" height="630" fill="url(#mz-ceu)"/>
+  <ellipse cx="620" cy="230" rx="620" ry="150" fill="url(#mz-viaLactea)" transform="rotate(-12 620 230)"/>
+  <g>
+      <circle cx="533.8" cy="271.5" r="2.55" fill="#FFF6E2" opacity="0.85"/>
+      <circle cx="599.3" cy="281.5" r="0.52" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="743.3" cy="355.5" r="0.5" fill="#CBD4F0" opacity="0.25"/>
+      <circle cx="107.0" cy="361.5" r="1.37" fill="#F0D48A" opacity="0.68" class="mesa-estrela" style="animation-delay:3.3s"/>
+      <circle cx="1138.4" cy="305.4" r="1.11" fill="#F0D48A" opacity="0.62" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="623.5" cy="91.4" r="0.52" fill="#CBD4F0" opacity="0.32" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="547.4" cy="228.6" r="2.05" fill="#FFF6E2" opacity="0.79"/>
+      <circle cx="755.5" cy="249.9" r="1.26" fill="#F0D48A" opacity="0.66"/>
+      <circle cx="328.2" cy="429.2" r="3.07" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="835.2" cy="183.5" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="82.9" cy="345.9" r="0.67" fill="#F0D48A" opacity="0.47"/>
+      <circle cx="456.1" cy="414.9" r="2.08" fill="#FFF6E2" opacity="0.79" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="1074.1" cy="239.2" r="2.95" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="86.2" cy="296.6" r="1.73" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="392.5" cy="417.1" r="1.63" fill="#F0D48A" opacity="0.73" class="mesa-estrela" style="animation-delay:0.8s"/>
+      <circle cx="119.2" cy="91.6" r="1.82" fill="#F0D48A" opacity="0.75" class="mesa-estrela" style="animation-delay:1.9s"/>
+      <circle cx="528.0" cy="138.6" r="1.52" fill="#F0D48A" opacity="0.71" class="mesa-estrela" style="animation-delay:2.2s"/>
+      <circle cx="137.5" cy="221.5" r="0.53" fill="#CBD4F0" opacity="0.33" class="mesa-estrela" style="animation-delay:3.3s"/>
+      <circle cx="948.0" cy="179.5" r="2.3" fill="#FFF6E2" opacity="0.82" class="mesa-estrela" style="animation-delay:1.3s"/>
+      <circle cx="1008.2" cy="301.1" r="0.5" fill="#CBD4F0" opacity="0.25"/>
+      <circle cx="251.6" cy="163.0" r="1.7" fill="#F0D48A" opacity="0.74"/>
+      <circle cx="349.7" cy="96.4" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="286.8" cy="286.5" r="0.63" fill="#CBD4F0" opacity="0.45"/>
+      <circle cx="1131.8" cy="244.1" r="0.99" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="215.7" cy="125.5" r="2.45" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="294.4" cy="138.3" r="1.55" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="232.0" cy="412.0" r="2.29" fill="#FFF6E2" opacity="0.82"/>
+      <circle cx="497.3" cy="107.4" r="0.5" fill="#CBD4F0" opacity="0.21"/>
+      <circle cx="281.3" cy="323.6" r="0.54" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="703.8" cy="175.6" r="0.51" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="81.2" cy="152.2" r="0.96" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="724.9" cy="170.9" r="2.51" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="317.6" cy="230.5" r="0.5" fill="#CBD4F0" opacity="0.22" class="mesa-estrela" style="animation-delay:1.3s"/>
+      <circle cx="675.2" cy="117.4" r="0.62" fill="#CBD4F0" opacity="0.44"/>
+      <circle cx="1157.0" cy="306.5" r="1.36" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="165.6" cy="82.6" r="0.5" fill="#CBD4F0" opacity="0.19"/>
+      <circle cx="827.1" cy="416.6" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="569.0" cy="333.0" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="88.8" cy="266.6" r="1.54" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="869.8" cy="323.3" r="1.8" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="415.2" cy="316.7" r="2.4" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="492.2" cy="354.6" r="2.17" fill="#FFF6E2" opacity="0.8"/>
+      <circle cx="737.5" cy="207.6" r="1.01" fill="#F0D48A" opacity="0.6"/>
+      <circle cx="94.6" cy="300.2" r="3.05" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="859.3" cy="209.8" r="1.53" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="519.8" cy="371.8" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="35.2" cy="286.5" r="0.79" fill="#F0D48A" opacity="0.53" class="mesa-estrela" style="animation-delay:2.4s"/>
+      <circle cx="586.8" cy="291.2" r="2.53" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:0.0s"/>
+      <circle cx="355.2" cy="314.1" r="0.52" fill="#CBD4F0" opacity="0.33" class="mesa-estrela" style="animation-delay:3.1s"/>
+      <circle cx="778.8" cy="229.1" r="2.34" fill="#FFF6E2" opacity="0.82"/>
+      <circle cx="785.8" cy="141.5" r="0.71" fill="#F0D48A" opacity="0.49"/>
+      <circle cx="1078.8" cy="386.9" r="0.65" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="373.5" cy="119.0" r="0.82" fill="#F0D48A" opacity="0.54"/>
+      <circle cx="1001.5" cy="326.0" r="2.73" fill="#FFF6E2" opacity="0.86" class="mesa-estrela" style="animation-delay:0.6s"/>
+      <circle cx="531.8" cy="169.1" r="0.53" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="738.4" cy="247.8" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="1158.8" cy="232.9" r="0.5" fill="#CBD4F0" opacity="0.23" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="49.0" cy="325.1" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="934.0" cy="76.9" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="29.2" cy="368.7" r="0.53" fill="#CBD4F0" opacity="0.35" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="742.4" cy="230.7" r="1.15" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="952.7" cy="415.0" r="1.33" fill="#F0D48A" opacity="0.67" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="210.8" cy="73.9" r="0.77" fill="#F0D48A" opacity="0.52"/>
+      <circle cx="211.3" cy="168.0" r="0.61" fill="#CBD4F0" opacity="0.43"/>
+      <circle cx="614.1" cy="291.2" r="1.62" fill="#F0D48A" opacity="0.72"/>
+      <circle cx="934.5" cy="396.2" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="852.4" cy="116.8" r="0.74" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="1073.8" cy="205.6" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="940.2" cy="409.9" r="0.76" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="241.8" cy="329.9" r="1.92" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="846.8" cy="146.8" r="2.4" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="1153.3" cy="263.3" r="1.79" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="1073.8" cy="378.1" r="0.61" fill="#CBD4F0" opacity="0.43" class="mesa-estrela" style="animation-delay:1.5s"/>
+      <circle cx="649.4" cy="346.6" r="0.8" fill="#F0D48A" opacity="0.53" class="mesa-estrela" style="animation-delay:2.8s"/>
+      <circle cx="75.6" cy="357.9" r="0.51" fill="#CBD4F0" opacity="0.3"/>
+      <circle cx="929.7" cy="120.6" r="0.51" fill="#CBD4F0" opacity="0.29"/>
+      <circle cx="853.8" cy="372.4" r="1.35" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="581.2" cy="411.7" r="0.5" fill="#CBD4F0" opacity="0.24" class="mesa-estrela" style="animation-delay:1.8s"/>
+      <circle cx="342.4" cy="332.4" r="1.18" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="995.5" cy="271.6" r="0.58" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="997.4" cy="394.2" r="0.52" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="1142.8" cy="258.7" r="0.99" fill="#F0D48A" opacity="0.59" class="mesa-estrela" style="animation-delay:1.8s"/>
+      <circle cx="593.7" cy="287.9" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="608.9" cy="214.2" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="579.4" cy="318.8" r="0.5" fill="#CBD4F0" opacity="0.23"/>
+      <circle cx="488.3" cy="414.5" r="2.55" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="149.8" cy="226.1" r="1.91" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="562.3" cy="184.2" r="0.52" fill="#CBD4F0" opacity="0.32"/>
+      <circle cx="1091.8" cy="116.6" r="1.73" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="268.2" cy="317.3" r="0.59" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="731.3" cy="107.8" r="1.52" fill="#F0D48A" opacity="0.71" class="mesa-estrela" style="animation-delay:1.7s"/>
+      <circle cx="295.7" cy="141.2" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="443.4" cy="218.8" r="0.89" fill="#F0D48A" opacity="0.56" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="745.0" cy="299.8" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="721.8" cy="378.4" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="956.4" cy="395.0" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="1088.9" cy="148.5" r="3.09" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="158.0" cy="156.2" r="1.5" fill="#F0D48A" opacity="0.7" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="982.0" cy="221.8" r="1.78" fill="#F0D48A" opacity="0.75" class="mesa-estrela" style="animation-delay:1.4s"/>
+      <circle cx="808.6" cy="76.4" r="0.52" fill="#CBD4F0" opacity="0.32"/>
+      <circle cx="1075.4" cy="418.6" r="0.5" fill="#CBD4F0" opacity="0.26"/>
+      <circle cx="894.6" cy="251.0" r="1.34" fill="#F0D48A" opacity="0.67" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="125.3" cy="83.5" r="0.94" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="671.1" cy="122.8" r="0.52" fill="#CBD4F0" opacity="0.31" class="mesa-estrela" style="animation-delay:2.9s"/>
+      <circle cx="1168.6" cy="403.7" r="0.5" fill="#CBD4F0" opacity="0.25" class="mesa-estrela" style="animation-delay:3.2s"/>
+      <circle cx="545.2" cy="345.3" r="0.59" fill="#CBD4F0" opacity="0.42"/>
+      <circle cx="608.0" cy="224.8" r="1.06" fill="#F0D48A" opacity="0.61" class="mesa-estrela" style="animation-delay:2.4s"/>
+      <circle cx="996.2" cy="135.3" r="0.74" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="478.3" cy="140.2" r="0.51" fill="#CBD4F0" opacity="0.3"/>
+      <circle cx="18.2" cy="391.5" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="1015.7" cy="296.6" r="0.67" fill="#F0D48A" opacity="0.47"/>
+      <circle cx="595.1" cy="423.8" r="1.86" fill="#FFF6E2" opacity="0.76" class="mesa-estrela" style="animation-delay:3.1s"/>
+      <circle cx="878.4" cy="350.1" r="1.91" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="1057.9" cy="386.7" r="1.37" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="903.0" cy="216.1" r="1.48" fill="#F0D48A" opacity="0.7" class="mesa-estrela" style="animation-delay:1.2s"/>
+      <circle cx="553.2" cy="73.8" r="0.62" fill="#CBD4F0" opacity="0.44"/>
+      <circle cx="736.3" cy="153.6" r="2.69" fill="#FFF6E2" opacity="0.86"/>
+      <circle cx="398.6" cy="307.5" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="459.7" cy="430.0" r="1.19" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="898.9" cy="422.8" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="871.8" cy="162.4" r="0.67" fill="#F0D48A" opacity="0.47" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="443.3" cy="105.4" r="0.54" fill="#CBD4F0" opacity="0.36"/>
+      <circle cx="649.1" cy="252.8" r="2.85" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="1174.2" cy="299.7" r="1.88" fill="#FFF6E2" opacity="0.76" class="mesa-estrela" style="animation-delay:2.0s"/>
+      <circle cx="895.9" cy="86.2" r="2.59" fill="#FFF6E2" opacity="0.85" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="199.6" cy="248.4" r="1.09" fill="#F0D48A" opacity="0.62" class="mesa-estrela" style="animation-delay:3.2s"/>
+      <circle cx="496.4" cy="259.6" r="1.06" fill="#F0D48A" opacity="0.61"/>
+      <circle cx="337.2" cy="305.8" r="0.96" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="845.6" cy="176.6" r="0.5" fill="#CBD4F0" opacity="0.19" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="184.8" cy="341.7" r="0.65" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="883.1" cy="88.1" r="3.01" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="86.7" cy="396.0" r="0.71" fill="#F0D48A" opacity="0.49"/>
+      <circle cx="1148.3" cy="157.7" r="0.87" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="852.8" cy="238.6" r="2.94" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="712.3" cy="111.4" r="1.13" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="240.3" cy="88.7" r="0.88" fill="#F0D48A" opacity="0.56" class="mesa-estrela" style="animation-delay:1.5s"/>
+      <circle cx="788.1" cy="234.0" r="0.55" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="495.0" cy="350.1" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="1124.1" cy="334.3" r="0.54" fill="#CBD4F0" opacity="0.35" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="925.5" cy="295.0" r="0.62" fill="#CBD4F0" opacity="0.44" class="mesa-estrela" style="animation-delay:2.3s"/>
+      <circle cx="666.6" cy="283.0" r="1.16" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="224.0" cy="159.6" r="2.95" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="1037.0" cy="84.2" r="0.5" fill="#CBD4F0" opacity="0.22" class="mesa-estrela" style="animation-delay:1.4s"/>
+      <circle cx="735.6" cy="106.9" r="0.91" fill="#F0D48A" opacity="0.57" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="798.0" cy="268.2" r="1.15" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="564.7" cy="145.8" r="0.61" fill="#CBD4F0" opacity="0.43"/>
+      <circle cx="989.5" cy="96.8" r="0.5" fill="#CBD4F0" opacity="0.27"/>
+      <circle cx="736.0" cy="346.8" r="0.53" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="304.5" cy="361.6" r="0.63" fill="#CBD4F0" opacity="0.45"/>
+      <circle cx="1167.2" cy="187.1" r="0.93" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="1086.6" cy="224.0" r="0.63" fill="#CBD4F0" opacity="0.45" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="92.6" cy="99.9" r="0.97" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="808.7" cy="177.6" r="1.71" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="781.3" cy="99.4" r="0.57" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="818.9" cy="171.8" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="856.7" cy="201.9" r="0.5" fill="#CBD4F0" opacity="0.26"/>
+      <circle cx="671.7" cy="400.7" r="2.66" fill="#FFF6E2" opacity="0.86"/>
+      <circle cx="516.8" cy="359.1" r="0.57" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="471.5" cy="406.5" r="2.36" fill="#FFF6E2" opacity="0.82" class="mesa-estrela" style="animation-delay:1.2s"/>
+      <circle cx="431.4" cy="200.8" r="0.66" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="230.1" cy="273.0" r="1.82" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="986.9" cy="272.6" r="0.51" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="1039.5" cy="171.3" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="642.1" cy="274.3" r="2.85" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="949.1" cy="93.1" r="0.93" fill="#F0D48A" opacity="0.57"/>
+      <circle cx="99.2" cy="99.4" r="1.54" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="99.9" cy="298.3" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="765.8" cy="158.4" r="0.53" fill="#CBD4F0" opacity="0.34"/>
+      <circle cx="615.4" cy="345.3" r="0.66" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="1142.6" cy="312.1" r="0.81" fill="#F0D48A" opacity="0.54"/>
+      <circle cx="850.7" cy="324.9" r="2.49" fill="#FFF6E2" opacity="0.84"/>
+      <circle cx="975.0" cy="310.0" r="2.12" fill="#FFF6E2" opacity="0.79"/>
+      <circle cx="983.9" cy="389.9" r="2.78" fill="#FFF6E2" opacity="0.87"/>
+      <circle cx="618.2" cy="325.6" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="496.1" cy="122.6" r="1.56" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="443.1" cy="130.4" r="0.52" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="344.6" cy="419.1" r="0.5" fill="#CBD4F0" opacity="0.22"/>
+      <circle cx="135.5" cy="303.3" r="1.71" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="541.3" cy="280.3" r="2.45" fill="#FFF6E2" opacity="0.83" class="mesa-estrela" style="animation-delay:0.4s"/>
+      <circle cx="217.8" cy="148.3" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="701.8" cy="150.6" r="0.52" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="203.6" cy="342.7" r="0.58" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="964.2" cy="242.6" r="0.55" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="1078.8" cy="193.1" r="0.93" fill="#F0D48A" opacity="0.57"/>
+      <circle cx="569.5" cy="149.6" r="0.5" fill="#CBD4F0" opacity="0.22"/>
+      <circle cx="945.7" cy="208.6" r="0.88" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="324.0" cy="426.5" r="1.24" fill="#F0D48A" opacity="0.65" class="mesa-estrela" style="animation-delay:0.0s"/>
+      <circle cx="557.7" cy="203.8" r="1.82" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="715.2" cy="126.6" r="0.51" fill="#CBD4F0" opacity="0.29"/>
+      <circle cx="306.1" cy="382.9" r="0.86" fill="#F0D48A" opacity="0.55"/>
+      <g opacity=".85"><circle cx="228" cy="142" r="2.4" fill="#FFF6E2"/>
+    <path d="M228 128 Q229.54 139.9 242 142 Q229.54 144.1 228 156
+             Q226.46 144.1 214 142 Q226.46 139.9 228 128 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="742" cy="118" r="3.1" fill="#FFF6E2"/>
+    <path d="M742 100 Q743.98 115.3 760 118 Q743.98 120.7 742 136
+             Q740.02 120.7 724 118 Q740.02 115.3 742 100 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="1064" cy="318" r="2.0" fill="#FFF6E2"/>
+    <path d="M1064 306 Q1065.32 316.2 1076 318 Q1065.32 319.8 1064 330
+             Q1062.68 319.8 1052 318 Q1062.68 316.2 1064 306 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="430" cy="96" r="1.9" fill="#FFF6E2"/>
+    <path d="M430 85.0 Q431.21 94.35 441.0 96 Q431.21 97.65 430 107.0
+             Q428.79 97.65 419.0 96 Q428.79 94.35 430 85.0 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="880" cy="240" r="2.2" fill="#FFF6E2"/>
+    <path d="M880 227.0 Q881.43 238.05 893.0 240 Q881.43 241.95 880 253.0
+             Q878.57 241.95 867.0 240 Q878.57 238.05 880 227.0 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="120" cy="300" r="1.7" fill="#FFF6E2"/>
+    <path d="M120 290 Q121.1 298.5 130 300 Q121.1 301.5 120 310
+             Q118.9 301.5 110 300 Q118.9 298.5 120 290 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+  </g>
+
+  <!-- ═══ A LUA — com crateras e sombreado, não um recorte ═══ -->
+  <g transform="translate(934,170)" id="mzLua">
+    <circle r="128" fill="url(#mz-luaHalo)" class="mesa-halo"/>
+    <circle r="50" fill="url(#mz-luaCorpo)"/>
+    <g opacity=".28" fill="#8E7E62">
+      <ellipse cx="-20" cy="-14" rx="9" ry="7.4" transform="rotate(-18 -20 -14)"/>
+      <ellipse cx="-8" cy="12" rx="6.2" ry="5.2"/>
+      <ellipse cx="-28" cy="16" rx="4" ry="3.4"/>
+      <ellipse cx="-14" cy="-30" rx="3.4" ry="2.8"/>
+      <ellipse cx="-33" cy="-2" rx="2.6" ry="2.2"/>
+    </g>
+    <circle r="50" fill="none" stroke="#FFF6E2" stroke-width="1" opacity=".5"/>
+    <!-- a sombra que faz a foice: com borda macia, não recorte duro -->
+    <circle cx="19" cy="-10" r="45" fill="#161A3A" id="mzLuaSombra"/>
+    <circle cx="19" cy="-10" r="45" fill="#161A3A" filter="url(#mz-borrar3)" id="mzLuaSombra2"/>
+  </g>
+
+  <!-- ═══ MORROS: três planos, cada um mais claro que o de trás ═══ -->
+  <path d="M0 384 L104 340 L200 366 L300 322 L392 360 L486 330 L580 368 L672 338 L768 374 L866 336 L968 370 L1076 338 L1180 376 L1180 700 L0 700 Z"
+        fill="#131737"/>
+  <path d="M0 412 L88 380 L192 404 L288 372 L400 402 L500 376 L604 406 L712 378 L820 408 L930 380 L1040 406 L1180 384 L1180 700 L0 700 Z"
+        fill="#0D1028"/>
+  <path d="M0 448 L120 424 L240 446 L360 420 L480 448 L620 422 L760 450 L900 424 L1040 448 L1180 426 L1180 700 L0 700 Z"
+        fill="#080A1C"/>
+
+  <!-- brilho da fogueira fora de quadro -->
+  <ellipse cx="90" cy="580" rx="330" ry="210" fill="url(#mz-fogo)"/>
+
+  <!-- ═══ A MESA ═══
+       ⚠️ ANTES ISTO ERA UM DISCO COM RUÍDO POR CIMA e o Michel disse, com
+       razão, que parecia tudo menos tecido. Ruído de feTurbulence é
+       ISOTRÓPICO — dá aspecto de ferrugem, não de pano. Tecido é
+       DIRECIONAL: trama cruzada, vinco que nasce no centro e abre pra fora,
+       barra que ondula em vez de fechar em elipse perfeita. É isso que
+       está aqui agora, e nenhum pedaço vem de filtro de ruído. -->
+  <g>
+    <!-- a saia que cai da mesa: nasce na aba dianteira do tampo -->
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-saia)"/>
+    <g>
+      <path d="M206 479 q-10 108 -30 222" stroke="#1A050B" stroke-width="22" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M217 483 q-10 106 -30 218" stroke="#D06A76" stroke-width="6" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M219 497 q3 108 9 222" stroke="#1A050B" stroke-width="35" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M236 501 q3 106 9 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M244 514 q12 108 35 222" stroke="#1A050B" stroke-width="13" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M251 518 q12 106 35 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M282 529 q17 108 49 222" stroke="#1A050B" stroke-width="14" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M289 533 q17 106 49 218" stroke="#D06A76" stroke-width="4" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M330 542 q19 108 53 222" stroke="#1A050B" stroke-width="36" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M348 546 q19 106 53 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M387 553 q17 108 48 222" stroke="#1A050B" stroke-width="21" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M397 557 q17 106 48 218" stroke="#D06A76" stroke-width="5" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M451 561 q13 108 36 222" stroke="#1A050B" stroke-width="9" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M455 565 q13 106 36 218" stroke="#D06A76" stroke-width="2" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M519 566 q7 108 19 222" stroke="#1A050B" stroke-width="31" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M535 570 q7 106 19 218" stroke="#D06A76" stroke-width="8" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M590 568 q0 108 0 222" stroke="#1A050B" stroke-width="29" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M604 572 q0 106 0 218" stroke="#D06A76" stroke-width="7" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M661 566 q-7 108 -19 222" stroke="#1A050B" stroke-width="8" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M665 570 q-7 106 -19 218" stroke="#D06A76" stroke-width="2" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M729 561 q-13 108 -36 222" stroke="#1A050B" stroke-width="24" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M741 565 q-13 106 -36 218" stroke="#D06A76" stroke-width="6" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M793 553 q-17 108 -48 222" stroke="#1A050B" stroke-width="34" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M810 557 q-17 106 -48 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M850 542 q-19 108 -53 222" stroke="#1A050B" stroke-width="12" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M856 546 q-19 106 -53 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M898 529 q-17 108 -49 222" stroke="#1A050B" stroke-width="16" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M906 533 q-17 106 -49 218" stroke="#D06A76" stroke-width="4" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M936 514 q-12 108 -35 222" stroke="#1A050B" stroke-width="36" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M953 518 q-12 106 -35 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M961 497 q-3 108 -9 222" stroke="#1A050B" stroke-width="19" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M971 501 q-3 106 -9 218" stroke="#D06A76" stroke-width="5" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M974 479 q10 108 30 222" stroke="#1A050B" stroke-width="10" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M979 483 q10 106 30 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+    </g>
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-trama)" opacity=".85"/>
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-bordado)" opacity=".8"/>
+    <!-- a luz da vela lambe a saia do lado esquerdo -->
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-luzSaia)"/>
+
+    <!-- espessura do tampo, aparecendo por baixo do pano -->
+    <path d="M204 470 a386 98 0 0 0 772 0 v11 a386 98 0 0 1 -772 0 z" fill="#2E0C14"/>
+
+    <!-- o tampo: borda ondulada, não elipse de compasso -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-tampo)"/>
+    <!-- vincos radiais -->
+    <g filter="url(#mz-borrar8)">
+      <path d="M674.0 473.2 L671.3 476.3 L966.8 499.0 L979.3 484.9 Z" fill="#25080F" opacity=".16"/>
+      <path d="M665.9 479.7 L662.0 481.4 L923.9 523.0 L942.1 514.7 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M650.5 485.1 L641.3 487.2 L827.6 549.7 L870.4 540.2 Z" fill="#25080F" opacity=".16"/>
+      <path d="M629.1 489.1 L621.8 490.0 L737.5 562.7 L771.2 558.7 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M603.9 491.3 L591.7 491.6 L597.7 569.9 L654.3 568.6 Z" fill="#25080F" opacity=".16"/>
+      <path d="M577.3 491.3 L569.5 490.9 L494.8 567.0 L531.2 568.8 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M552.0 489.3 L541.4 487.7 L364.9 552.0 L413.7 559.4 Z" fill="#25080F" opacity=".16"/>
+      <path d="M530.4 485.4 L525.0 483.9 L288.4 534.3 L313.6 541.2 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M514.6 479.9 L509.8 477.1 L218.0 502.8 L240.5 516.0 Z" fill="#25080F" opacity=".16"/>
+      <path d="M506.2 473.5 L505.3 471.5 L197.2 477.0 L201.6 486.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M506.0 466.8 L508.7 463.7 L213.2 441.0 L200.7 455.1 Z" fill="#25080F" opacity=".16"/>
+      <path d="M514.1 460.3 L518.0 458.6 L256.1 417.0 L237.9 425.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M529.5 454.9 L538.7 452.8 L352.4 390.3 L309.6 399.8 Z" fill="#25080F" opacity=".16"/>
+      <path d="M550.9 450.9 L558.2 450.0 L442.5 377.3 L408.8 381.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M576.1 448.7 L588.3 448.4 L582.3 370.1 L525.7 371.4 Z" fill="#25080F" opacity=".16"/>
+      <path d="M602.7 448.7 L610.5 449.1 L685.2 373.0 L648.8 371.2 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M628.0 450.7 L638.6 452.3 L815.1 388.0 L766.3 380.6 Z" fill="#25080F" opacity=".16"/>
+      <path d="M649.6 454.6 L655.0 456.1 L891.6 405.7 L866.4 398.8 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M665.4 460.1 L670.2 462.9 L962.0 437.2 L939.5 424.0 Z" fill="#25080F" opacity=".16"/>
+      <path d="M673.8 466.5 L674.7 468.5 L982.8 463.0 L978.4 453.7 Z" fill="#FFD9A8" opacity=".085"/>
+    </g>
+    <!-- a trama: fio de urdidura e fio de trama, cruzados -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-trama)" opacity=".95"/>
+    <!-- o bordado -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-bordado)"/>
+    <!-- veludo: a luz varre a superfície e apaga no fundo -->
+    <ellipse cx="560" cy="452" rx="300" ry="72" fill="url(#mz-veludo)"/>
+    <!-- debrum de ouro seguindo a onda -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="none" stroke="#E0BC68" stroke-width="1.6" opacity=".55"/>
+    <path d="M922.2 470.0 L922.4 477.2 L916.0 484.2 L905.4 490.8 L895.0 497.3 L886.1 504.0 L875.4 510.6 L859.4 516.5 L838.4 521.3 L816.0 525.7 L794.7 530.1 L773.8 534.7 L751.4 538.9 L727.3 542.5 L702.1 545.9 L676.0 549.1 L648.3 551.5 L619.1 552.1 L590.0 551.0 L561.8 549.3 L534.1 548.2 L506.0 547.3 L478.3 545.6 L452.6 542.6 L429.0 538.7 L406.0 534.7 L383.0 530.8 L360.9 526.4 L340.9 521.5 L322.3 516.2 L303.6 510.7 L286.2 504.9 L274.0 498.3 L269.7 491.1 L270.6 483.9 L271.5 476.9 L269.9 470.0 L268.3 463.1 L270.7 456.1 L277.4 449.4 L286.2 442.8 L295.6 436.2 L307.0 429.8 L322.1 423.8 L339.9 418.3 L358.0 412.8 L376.4 407.3 L397.6 402.3 L423.2 398.8 L451.9 397.0 L480.6 395.9 L507.8 394.4 L534.5 392.5 L561.9 390.9 L590.0 390.3 L618.3 390.3 L646.8 390.6 L675.4 391.5 L703.0 393.5 L728.6 396.8 L753.1 400.4 L778.2 403.8 L803.3 407.4 L825.4 412.0 L841.8 417.9 L853.8 424.5 L865.1 430.9 L878.1 436.9 L891.2 443.0 L902.0 449.4 L910.2 456.1 L917.1 462.9 L922.2 470.0 Z" fill="none" stroke="#E0BC68" stroke-width=".8"
+          stroke-dasharray="6 9" opacity=".26"/>
+    <!-- fio de luz na quina onde a vela bate -->
+    <path d="M212 476 a386 98 0 0 0 206 90" fill="none" stroke="#FFC97A" stroke-width="2.6"
+          opacity=".26" filter="url(#mz-borrar3)"/>
+    <!-- cáustica da bola -->
+    <ellipse cx="590" cy="452" rx="128" ry="38" fill="url(#mz-caustica)"/>
+  </g>
+
+  <!-- franja: fio a fio, altura e curvatura irregulares -->
+  <g stroke="#E0BC68" stroke-width="1.3" opacity=".5" stroke-linecap="round" fill="none">
+    <path d="M144 694 q-1.5 7 -0.8 12"/><path d="M153 696 q-0.8 10 -0.4 18"/><path d="M163 699 q0.0 14 0.0 25"/><path d="M172 701 q0.8 8 0.4 15"/><path d="M182 702 q1.5 12 0.8 22"/><path d="M191 703 q-1.5 7 -0.8 12"/><path d="M200 703 q-0.8 10 -0.4 18"/><path d="M210 703 q0.0 14 0.0 25"/><path d="M219 702 q0.8 8 0.4 15"/><path d="M229 701 q1.5 12 0.8 22"/><path d="M238 700 q-1.5 7 -0.8 12"/><path d="M247 698 q-0.8 10 -0.4 18"/><path d="M257 696 q0.0 14 0.0 25"/><path d="M266 694 q0.8 8 0.4 15"/><path d="M275 692 q1.5 12 0.8 22"/><path d="M285 691 q-1.5 7 -0.8 12"/><path d="M294 690 q-0.8 10 -0.4 18"/><path d="M304 689 q0.0 14 0.0 25"/><path d="M313 688 q0.8 8 0.4 15"/><path d="M322 688 q1.5 12 0.8 22"/><path d="M332 688 q-1.5 7 -0.8 12"/><path d="M341 687 q-0.8 10 -0.4 18"/><path d="M351 687 q0.0 14 0.0 25"/><path d="M360 687 q0.8 8 0.4 15"/><path d="M369 686 q1.5 12 0.8 22"/><path d="M379 686 q-1.5 7 -0.8 12"/><path d="M388 685 q-0.8 10 -0.4 18"/><path d="M398 684 q0.0 14 0.0 25"/><path d="M407 682 q0.8 8 0.4 15"/><path d="M416 681 q1.5 12 0.8 22"/><path d="M426 680 q-1.5 7 -0.8 12"/><path d="M435 679 q-0.8 10 -0.4 18"/><path d="M444 679 q0.0 14 0.0 25"/><path d="M454 679 q0.8 8 0.4 15"/><path d="M463 679 q1.5 12 0.8 22"/><path d="M473 680 q-1.5 7 -0.8 12"/><path d="M482 681 q-0.8 10 -0.4 18"/><path d="M491 683 q0.0 14 0.0 25"/><path d="M501 685 q0.8 8 0.4 15"/><path d="M510 688 q1.5 12 0.8 22"/><path d="M520 691 q-1.5 7 -0.8 12"/><path d="M529 693 q-0.8 10 -0.4 18"/><path d="M538 696 q0.0 14 0.0 25"/><path d="M548 698 q0.8 8 0.4 15"/><path d="M557 700 q1.5 12 0.8 22"/><path d="M567 701 q-1.5 7 -0.8 12"/><path d="M576 702 q-0.8 10 -0.4 18"/><path d="M585 702 q0.0 14 0.0 25"/><path d="M595 702 q0.8 8 0.4 15"/><path d="M604 701 q1.5 12 0.8 22"/><path d="M613 700 q-1.5 7 -0.8 12"/><path d="M623 699 q-0.8 10 -0.4 18"/><path d="M632 697 q0.0 14 0.0 25"/><path d="M642 696 q0.8 8 0.4 15"/><path d="M651 695 q1.5 12 0.8 22"/><path d="M660 693 q-1.5 7 -0.8 12"/><path d="M670 693 q-0.8 10 -0.4 18"/><path d="M679 692 q0.0 14 0.0 25"/><path d="M689 691 q0.8 8 0.4 15"/><path d="M698 691 q1.5 12 0.8 22"/><path d="M707 691 q-1.5 7 -0.8 12"/><path d="M717 691 q-0.8 10 -0.4 18"/><path d="M726 690 q0.0 14 0.0 25"/><path d="M736 690 q0.8 8 0.4 15"/><path d="M745 689 q1.5 12 0.8 22"/><path d="M754 688 q-1.5 7 -0.8 12"/><path d="M764 687 q-0.8 10 -0.4 18"/><path d="M773 685 q0.0 14 0.0 25"/><path d="M782 683 q0.8 8 0.4 15"/><path d="M792 682 q1.5 12 0.8 22"/><path d="M801 680 q-1.5 7 -0.8 12"/><path d="M811 679 q-0.8 10 -0.4 18"/><path d="M820 678 q0.0 14 0.0 25"/><path d="M829 677 q0.8 8 0.4 15"/><path d="M839 677 q1.5 12 0.8 22"/><path d="M848 678 q-1.5 7 -0.8 12"/><path d="M858 679 q-0.8 10 -0.4 18"/><path d="M867 680 q0.0 14 0.0 25"/><path d="M876 682 q0.8 8 0.4 15"/><path d="M886 685 q1.5 12 0.8 22"/><path d="M895 687 q-1.5 7 -0.8 12"/><path d="M905 690 q-0.8 10 -0.4 18"/><path d="M914 693 q0.0 14 0.0 25"/><path d="M923 695 q0.8 8 0.4 15"/><path d="M933 697 q1.5 12 0.8 22"/><path d="M942 699 q-1.5 7 -0.8 12"/><path d="M951 700 q-0.8 10 -0.4 18"/><path d="M961 700 q0.0 14 0.0 25"/><path d="M970 700 q0.8 8 0.4 15"/><path d="M980 700 q1.5 12 0.8 22"/><path d="M989 699 q-1.5 7 -0.8 12"/><path d="M998 699 q-0.8 10 -0.4 18"/><path d="M1008 698 q0.0 14 0.0 25"/><path d="M1017 697 q0.8 8 0.4 15"/><path d="M1027 696 q1.5 12 0.8 22"/><path d="M1036 695 q-1.5 7 -0.8 12"/>
+  </g>
+
+  <!-- ═══ AS VELAS ═══ -->
+  <g id="mzVelas">
+  
+  <g transform="translate(206,392)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="24.0" cy="100" rx="45.0" ry="11.4" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="15.0" cy="96" rx="23.400000000000002" ry="6.0" fill="#C9B48C" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h30 v88 q-15.0 7.199999999999999 -30 0 z" fill="url(#mz-ceraA)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h10.200000000000001 v88 q-5.1000000000000005 3.0 -10.200000000000001 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M28.4 8 h1.6 v87 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="15.0" cy="8" rx="15.0" ry="6.6" fill="#C9B48C"/>
+    <ellipse cx="15.0" cy="7" rx="14.0" ry="5.7" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M6.6 9 q-1.6 24.96 .6 32.64" stroke="#C9B48C" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M22.2 10 q1.8 15.36 .2 21.12" stroke="#C9B48C" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M15.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:0s" transform="translate(15.0,1)">
+      <ellipse cx="0" cy="-11.0" rx="6.4" ry="14.0" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-8.0" rx="2.7" ry="6.8" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-4.0" rx="1.5" ry="2.6" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="15.0" cy="-8" r="34.0" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:0s"/>
+  </g>
+  
+  <g transform="translate(266,424)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="22.0" cy="78" rx="39.0" ry="9.88" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="13.0" cy="74" rx="20.28" ry="5.2" fill="#B58676" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h26 v66 q-13.0 6.24 -26 0 z" fill="url(#mz-ceraB)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h8.84 v66 q-4.42 2.6 -8.84 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M24.4 8 h1.6 v65 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="13.0" cy="8" rx="13.0" ry="5.72" fill="#B58676"/>
+    <ellipse cx="13.0" cy="7" rx="12.0" ry="4.94" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M5.72 9 q-1.6 19.240000000000002 .6 25.16" stroke="#B58676" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M19.24 10 q1.8 11.84 .2 16.28" stroke="#B58676" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M13.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:-0.5s" transform="translate(13.0,1)">
+      <ellipse cx="0" cy="-9.459999999999999" rx="5.5040000000000004" ry="12.04" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-6.88" rx="2.322" ry="5.848" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-3.44" rx="1.29" ry="2.236" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="13.0" cy="-8" r="29.24" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:-0.5s"/>
+  </g>
+  
+  <g transform="translate(900,416)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="22.0" cy="82" rx="39.0" ry="9.88" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="13.0" cy="78" rx="20.28" ry="5.2" fill="#C9B48C" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h26 v70 q-13.0 6.24 -26 0 z" fill="url(#mz-ceraA)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h8.84 v70 q-4.42 2.6 -8.84 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M24.4 8 h1.6 v69 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="13.0" cy="8" rx="13.0" ry="5.72" fill="#C9B48C"/>
+    <ellipse cx="13.0" cy="7" rx="12.0" ry="4.94" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M5.72 9 q-1.6 20.28 .6 26.520000000000003" stroke="#C9B48C" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M19.24 10 q1.8 12.48 .2 17.16" stroke="#C9B48C" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M13.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:-0.9s" transform="translate(13.0,1)">
+      <ellipse cx="0" cy="-9.9" rx="5.760000000000001" ry="12.6" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-7.2" rx="2.43" ry="6.12" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-3.6" rx="1.35" ry="2.3400000000000003" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="13.0" cy="-8" r="30.6" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:-0.9s"/>
+  </g>
+
+  </g>
+
+  <!-- ═══ A LANTERNA ═══ -->
+  <g transform="translate(182,190)" id="mzLanterna">
+    <circle cx="32" cy="58" r="80" fill="url(#mz-luzQuente)" class="mesa-halo"/>
+    <path d="M32 -16 v14" stroke="#8A6420" stroke-width="1.6"/>
+    <path d="M24 -2 a8 8 0 0 1 16 0" fill="none" stroke="url(#mz-ouroCanto)" stroke-width="2.4"/>
+    <!-- chapéu -->
+    <path d="M10 14 l22 -12 22 12 z" fill="url(#mz-ouroFace)"/>
+    <path d="M10 14 l22 -12 22 12 z" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <path d="M8 14 h48 v5 h-48 z" fill="url(#mz-ouroCanto)"/>
+    <!-- vidro -->
+    <path d="M14 19 h36 v50 h-36 z" fill="url(#mz-vidro)"/>
+    <path d="M16 21 h10 v46 h-10 z" fill="#FFF6DC" opacity=".26"/>
+    <g class="mesa-chama" transform="translate(32,58)">
+      <ellipse cx="0" cy="-8" rx="5.4" ry="11.5" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-5" rx="2.2" ry="5.4" fill="#FFF9E8" opacity=".92"/>
+    </g>
+    <!-- caixilhos -->
+    <g stroke="url(#mz-ouroCanto)" stroke-width="2.6" fill="none">
+      <path d="M14 19 v50 M50 19 v50"/>
+    </g>
+    <g stroke="#C9A24A" stroke-width="1" fill="none" opacity=".75">
+      <path d="M32 19 v50"/><path d="M14 34 h36 M14 50 h36"/>
+    </g>
+    <!-- base -->
+    <path d="M8 69 h48 v6 h-48 z" fill="url(#mz-ouroCanto)"/>
+    <path d="M12 75 h40 l-5 9 h-30 z" fill="url(#mz-ouroFace)"/>
+    <path d="M12 75 h40 l-5 9 h-30 z" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <path d="M15 76 h5 l-2 7 h-4 z" fill="#FFF6DC" opacity=".3"/>
+  </g>
+
+  <!-- ═══ BARALHO EMPILHADO — o resto das cartas, esperando ═══ -->
+  <g transform="translate(468,470) rotate(-6)">
+    <ellipse cx="26" cy="34" rx="34" ry="9" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/>
+    <g>
+      <rect x="2" y="6" width="50" height="26" rx="4" fill="#1A1E42" stroke="#8A6420" stroke-width=".8"/>
+      <rect x="1" y="3" width="50" height="26" rx="4" fill="#20254E" stroke="#A07C2C" stroke-width=".8"/>
+      <rect x="0" y="0" width="50" height="26" rx="4" fill="#252B58" stroke="#C9A24A" stroke-width="1"/>
+      <rect x="3" y="3" width="44" height="20" rx="2.6" fill="none" stroke="#C9A24A" stroke-width=".6" opacity=".5"/>
+      <path d="M25 5 L26.6 11.4 L33 13 L26.6 14.6 L25 21 L23.4 14.6 L17 13 L23.4 11.4 Z"
+            fill="none" stroke="#E0BC68" stroke-width=".9" opacity=".8"/>
+      <path d="M4 4 q8 -2 14 1" fill="none" stroke="#FFF6DC" stroke-width=".8" opacity=".3"/>
+    </g>
+  </g>
+
+  <!-- ═══ TAÇA — o vinho da noite ═══ -->
+  <g transform="translate(848,392)">
+    <ellipse cx="17" cy="86" rx="24" ry="7" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/>
+    <ellipse cx="17" cy="84" rx="17" ry="5" fill="url(#mz-ouroCanto)"/>
+    <path d="M15 46 h4 v36 h-4 z" fill="url(#mz-ouroCanto)"/>
+    <path d="M2 14 q0 30 15 32 q15 -2 15 -32 z" fill="#3A1220" opacity=".85"/>
+    <path d="M4 26 q0 19 13 21 q13 -2 13 -21 z" fill="#7A1E2E" opacity=".9"/>
+    <ellipse cx="17" cy="26" rx="13" ry="3.6" fill="#9B2F35"/>
+    <ellipse cx="13" cy="25" rx="4.4" ry="1.5" fill="#E8899A" opacity=".5"/>
+    <path d="M2 14 q0 30 15 32 q15 -2 15 -32 z" fill="none" stroke="#C9D4F0" stroke-width="1.1" opacity=".5"/>
+    <path d="M5 16 q-1 22 8 27" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity=".38"/>
+  </g>
+
+  <!-- ═══ PÉTALAS SECAS espalhadas no pano ═══ -->
+  <g>
+    <g transform="translate(300,548) rotate(-24)">
+      <path d="M0 0 q9 -7 17 0 q-9 8 -17 0 z" fill="#8A2A32"/>
+      <path d="M2 0 q7 -5 13 0" fill="none" stroke="#C4535E" stroke-width=".7" opacity=".6"/>
+    </g>
+    <g transform="translate(258,570) rotate(16)">
+      <path d="M0 0 q8 -6 15 0 q-8 7 -15 0 z" fill="#6E2028"/>
+    </g>
+    <g transform="translate(636,502) rotate(-8)">
+      <path d="M0 0 q7 -5 13 0 q-7 6 -13 0 z" fill="#8A2A32" opacity=".9"/>
+    </g>
+    <g transform="translate(922,506) rotate(30)">
+      <path d="M0 0 q8 -6 15 0 q-8 7 -15 0 z" fill="#7A2530"/>
+      <path d="M2 0 q6 -4 11 0" fill="none" stroke="#C4535E" stroke-width=".7" opacity=".55"/>
+    </g>
+    <g transform="translate(560,538) rotate(-40)">
+      <path d="M0 0 q6 -5 12 0 q-6 6 -12 0 z" fill="#6E2028" opacity=".85"/>
+    </g>
+  </g>
+
+  <!-- ═══ AS MOEDAS ═══ -->
+  <g id="mzMoedas">
+  <g transform="translate(352,508) rotate(0)"><ellipse cx="2" cy="9.3" rx="17.25" ry="6.0" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-1.5" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-0.6000000000000001" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-3.2" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-3.2" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-4.7" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-3.8000000000000003" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-6.4" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-6.4" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-7.9" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(390,518) rotate(0)"><ellipse cx="2" cy="8.67" rx="15.524999999999999" ry="5.4" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="8.37" ry="2.97" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.05" cy="-1.35" rx="4.05" ry="1.35" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-0.6000000000000001" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-3.2" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-3.2" rx="8.37" ry="2.97" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.05" cy="-4.550000000000001" rx="4.05" ry="1.35" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(320,522) rotate(0)"><ellipse cx="2" cy="8.25" rx="14.374999999999998" ry="5.0" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="12.5" ry="4.5" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="12.5" ry="4.5" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="7.75" ry="2.75" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-3.75" cy="-1.25" rx="3.75" ry="1.25" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(414,502) rotate(-26)">
+    <ellipse cx="2" cy="14" rx="14" ry="4.4" fill="#1A0A10" opacity=".5" filter="url(#mz-borrar3)"/>
+    <circle r="13.5" fill="url(#mz-ouroFace)"/>
+    <circle r="13.5" fill="none" stroke="#7A5514" stroke-width=".9"/>
+    <circle r="7.6" fill="none" stroke="#7A5514" stroke-width=".8" opacity=".7"/>
+    <ellipse cx="-4.4" cy="-4.4" rx="4.2" ry="2.6" fill="#FFF6DC" opacity=".62" transform="rotate(-38)"/>
+  </g>
+
+  </g>
+
+  <!-- ═══ O INCENSO ═══ -->
+  <g transform="translate(1028,396)">
+    <ellipse cx="14" cy="72" rx="22" ry="7" fill="#1A0A10" opacity=".5" filter="url(#mz-borrar3)"/>
+    <path d="M4 62 q10 -7 20 0 v7 q-10 5 -20 0 z" fill="url(#mz-ouroFace)" filter="url(#mz-metal)"/>
+    <ellipse cx="14" cy="62" rx="10" ry="3.4" fill="#4E340B"/>
+    <path d="M14 61 v-38" stroke="#6B5638" stroke-width="1.5"/>
+    <circle cx="14" cy="23" r="2.4" fill="#F08A32"/>
+    <circle cx="14" cy="23" r="6" fill="url(#mz-luzQuente)"/>
+    <g class="mesa-fumo" style="transform-origin:14px 23px">
+      <path d="M14 21 q8 -11 0 -22 q-8 -11 0 -19" fill="none" stroke="#D8D2C2"
+            stroke-width="1.7" opacity=".42" stroke-linecap="round" filter="url(#mz-borrar3)"/>
+    </g>
+    <g class="mesa-fumo" style="animation-delay:-2.6s;transform-origin:14px 23px">
+      <path d="M14 21 q-7 -12 1 -23 q8 -10 0 -18" fill="none" stroke="#D8D2C2"
+            stroke-width="1.3" opacity=".3" stroke-linecap="round" filter="url(#mz-borrar3)"/>
+    </g>
+  </g>
+
+  <!-- ═══ O PANDEIRO ═══ -->
+  <g transform="translate(938,388) rotate(-13)">
+    <ellipse cx="48" cy="104" rx="50" ry="13" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <circle cx="48" cy="48" r="47" fill="url(#mz-aroPand)"/>
+    <circle cx="48" cy="48" r="47" fill="none" stroke="#E0BC68" stroke-width="1.4" opacity=".65"/>
+    <circle cx="48" cy="48" r="38" fill="url(#mz-pele)"/>
+    <circle cx="48" cy="48" r="38" filter="url(#mz-graoFino)" fill="#E3CFA4" opacity=".5"/>
+    <circle cx="48" cy="48" r="38" fill="url(#mz-bordado)"/>
+    <circle cx="48" cy="48" r="38" fill="none" stroke="#8A6420" stroke-width=".9" opacity=".55"/>
+    <path d="M48 23 L51.6 42 L70 45.6 L51.6 49 L48 68 L44.4 49 L26 45.6 L44.4 42 Z"
+          fill="none" stroke="#8A6420" stroke-width="1.2" opacity=".7"/>
+    <ellipse cx="34" cy="30" rx="14" ry="8" fill="#FFF9E8" opacity=".28" transform="rotate(-34 34 30)"/>
+    <g filter="url(#mz-metal)">
+      <circle cx="48" cy="1" r="5"/><circle cx="81" cy="15" r="5"/><circle cx="95" cy="48" r="5"/>
+      <circle cx="81" cy="81" r="5"/><circle cx="48" cy="95" r="5"/><circle cx="15" cy="81" r="5"/>
+      <circle cx="1" cy="48" r="5"/><circle cx="15" cy="15" r="5"/>
+    </g>
+    <g fill="url(#mz-ouroFace)">
+      <circle cx="48" cy="1" r="5"/><circle cx="81" cy="15" r="5"/><circle cx="95" cy="48" r="5"/>
+      <circle cx="81" cy="81" r="5"/><circle cx="48" cy="95" r="5"/><circle cx="15" cy="81" r="5"/>
+      <circle cx="1" cy="48" r="5"/><circle cx="15" cy="15" r="5"/>
+    </g>
+  </g>
+
+  <!-- ═══ O BAÚ ═══
+       ⚠️ SEM filter="url(#mz-metal)" nas bandas. O feComposite arithmetic do filtro
+       comia o alfa das tiras finas e o baú virava uns pauzinhos soltos no ar.
+       Filtro de especular só funciona em forma cheia; em tira estreita, quebra.
+       Aqui o metal é gradiente + um fio de luz por cima. -->
+  <g transform="translate(690,436)">
+    <ellipse cx="50" cy="86" rx="60" ry="13" fill="#1A0A10" opacity=".6" filter="url(#mz-borrar4)"/>
+    <!-- corpo -->
+    <path d="M6 44 h88 v38 q-44 7 -88 0 z" fill="url(#mz-madeira)"/>
+    <path d="M6 44 h88 v38 q-44 7 -88 0 z" filter="url(#mz-grao)" fill="#6B4526" opacity=".5"/>
+    <!-- tampa abaulada -->
+    <path d="M6 44 q44 -40 88 0 z" fill="url(#mz-madeiraTampa)"/>
+    <path d="M6 44 q44 -40 88 0 z" filter="url(#mz-grao)" fill="#7A4E28" opacity=".45"/>
+    <path d="M12 41 q38 -32 76 -3" fill="none" stroke="#C99A5E" stroke-width="1.6" opacity=".5"/>
+    <path d="M18 43 q32 -25 64 -2" fill="none" stroke="#C99A5E" stroke-width=".9" opacity=".28"/>
+    <!-- bandas de metal -->
+    <g fill="url(#mz-ouroCanto)">
+      <path d="M24 20 q3.6 -2.6 7.4 -4.2 v66.8 q-3.7 .5 -7.4 .8 z"/>
+      <path d="M68.6 15.8 q3.8 1.6 7.4 4.2 v63.4 q-3.7 -.3 -7.4 -.8 z"/>
+      <path d="M6 56 h88 v6 q-44 6 -88 0 z"/>
+    </g>
+    <g stroke="#F0D48A" stroke-width=".9" opacity=".5" fill="none">
+      <path d="M25.6 19 v65"/><path d="M70 17 v65"/><path d="M6 57 h88"/>
+    </g>
+    <!-- fechadura -->
+    <rect x="42" y="50" width="15" height="18" rx="2.6" fill="url(#mz-ouroFace)"/>
+    <rect x="42" y="50" width="15" height="18" rx="2.6" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <circle cx="49.5" cy="57" r="2.8" fill="#2A1608"/>
+    <path d="M49.5 59 v5" stroke="#2A1608" stroke-width="1.6"/>
+    <ellipse cx="45" cy="53" rx="3.4" ry="1.6" fill="#FFF6DC" opacity=".55"/>
+    <!-- linha da tampa -->
+    <path d="M6 44 q44 7 88 0" fill="none" stroke="#2A1608" stroke-width="1.5" opacity=".65"/>
+  </g>
+
+  <!-- ═══ POEIRA SUSPENSA NA LUZ DAS VELAS ═══
+       Partícula flutuando no facho é o detalhe que o olho lê como "foto".
+       Só existe onde há luz quente — no escuro, poeira não aparece. -->
+  <g class="mesa-halo" style="animation-duration:7s">
+    <circle cx="446.0" cy="599.2" r="1.86" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="339.4" cy="489.0" r="1.39" fill="#FFD9A0" opacity="0.17"/>
+    <circle cx="211.4" cy="493.4" r="0.99" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="157.9" cy="418.0" r="1.62" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="314.0" cy="554.2" r="1.17" fill="#FFD9A0" opacity="0.14"/>
+    <circle cx="400.6" cy="523.7" r="1.56" fill="#FFD9A0" opacity="0.36"/>
+    <circle cx="460.6" cy="476.2" r="1.69" fill="#FFD9A0" opacity="0.26"/>
+    <circle cx="333.1" cy="538.7" r="1.11" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="301.7" cy="550.8" r="1.47" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="355.6" cy="438.2" r="0.93" fill="#FFD9A0" opacity="0.24"/>
+    <circle cx="411.1" cy="441.1" r="0.85" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="162.5" cy="457.9" r="1.44" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="255.9" cy="477.6" r="1.08" fill="#FFD9A0" opacity="0.24"/>
+    <circle cx="398.8" cy="515.3" r="1.04" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="400.8" cy="548.5" r="1.78" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="324.6" cy="592.9" r="1.47" fill="#FFD9A0" opacity="0.48"/>
+    <circle cx="203.5" cy="604.8" r="0.77" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="157.5" cy="570.0" r="1.59" fill="#FFD9A0" opacity="0.49"/>
+    <circle cx="407.6" cy="599.3" r="1.4" fill="#FFD9A0" opacity="0.5"/>
+    <circle cx="389.7" cy="472.7" r="1.97" fill="#FFD9A0" opacity="0.26"/>
+    <circle cx="211.9" cy="415.9" r="1.31" fill="#FFD9A0" opacity="0.19"/>
+    <circle cx="448.7" cy="599.6" r="0.98" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="319.3" cy="435.6" r="1.41" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="231.0" cy="488.6" r="1.87" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="259.7" cy="587.4" r="1.76" fill="#FFD9A0" opacity="0.46"/>
+    <circle cx="370.1" cy="486.7" r="1.6" fill="#FFD9A0" opacity="0.44"/>
+    <circle cx="354.6" cy="450.1" r="1.08" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="396.9" cy="517.0" r="1.41" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="184.7" cy="532.6" r="1.13" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="417.3" cy="452.2" r="1.94" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="329.8" cy="513.8" r="1.01" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="300.6" cy="494.4" r="1.63" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="270.7" cy="565.0" r="0.88" fill="#FFD9A0" opacity="0.45"/>
+    <circle cx="215.1" cy="543.0" r="0.93" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="285.2" cy="417.2" r="1.61" fill="#FFD9A0" opacity="0.3"/>
+    <circle cx="370.5" cy="513.2" r="1.42" fill="#FFD9A0" opacity="0.32"/>
+    <circle cx="245.3" cy="588.7" r="0.81" fill="#FFD9A0" opacity="0.45"/>
+    <circle cx="426.3" cy="504.5" r="1.71" fill="#FFD9A0" opacity="0.38"/>
+    <circle cx="343.6" cy="461.2" r="1.12" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="246.7" cy="601.5" r="1.14" fill="#FFD9A0" opacity="0.27"/>
+    <circle cx="284.3" cy="571.5" r="1.32" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="231.8" cy="458.4" r="0.82" fill="#FFD9A0" opacity="0.2"/>
+    <circle cx="234.4" cy="579.0" r="1.35" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="298.1" cy="425.4" r="1.44" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="424.7" cy="454.4" r="1.81" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="464.4" cy="533.2" r="0.76" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="915.1" cy="465.2" r="0.75" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="878.1" cy="532.9" r="1.0" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="918.6" cy="414.1" r="1.52" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="893.9" cy="575.7" r="1.51" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="863.8" cy="510.0" r="0.74" fill="#FFD9A0" opacity="0.3"/>
+    <circle cx="953.8" cy="527.6" r="1.17" fill="#FFD9A0" opacity="0.32"/>
+    <circle cx="1024.3" cy="508.5" r="1.19" fill="#FFD9A0" opacity="0.19"/>
+    <circle cx="886.8" cy="416.6" r="1.46" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="945.3" cy="457.0" r="1.22" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="1031.8" cy="478.5" r="0.96" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="1009.0" cy="566.6" r="0.91" fill="#FFD9A0" opacity="0.35"/>
+    <circle cx="1056.3" cy="576.8" r="0.73" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="1014.8" cy="549.6" r="0.64" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="1004.8" cy="536.5" r="1.14" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="941.4" cy="410.5" r="0.92" fill="#FFD9A0" opacity="0.22"/>
+    <circle cx="1024.6" cy="506.1" r="1.01" fill="#FFD9A0" opacity="0.17"/>
+    <circle cx="923.1" cy="520.7" r="1.05" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="1024.3" cy="503.6" r="1.57" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="984.6" cy="477.0" r="1.21" fill="#FFD9A0" opacity="0.36"/>
+    <circle cx="1056.3" cy="519.0" r="1.03" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="1028.0" cy="470.5" r="0.98" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="866.8" cy="470.3" r="1.57" fill="#FFD9A0" opacity="0.31"/>
+  </g>
+
+  <!-- ═══ A BOLA DE CRISTAL ═══ -->
+  <g>
+    <ellipse cx="590" cy="432" rx="76" ry="17" fill="#1A0A10" opacity=".6" filter="url(#mz-borrar4)"/>
+    <path d="M552 428 q38 18 76 0 l-9 -20 q-29 11 -58 0 z" fill="url(#mz-ouroFace)" filter="url(#mz-metal)"/>
+    <path d="M552 428 q38 18 76 0 l-3 8 q-35 15 -70 0 z" fill="#6B4C18"/>
+    <circle cx="590" cy="346" r="150" fill="url(#mz-brilhoBola)" class="mesa-halo"/>
+    <circle cx="590" cy="346" r="78" fill="url(#mz-cristal)"/>
+    <!-- refração: a mesa aparece invertida dentro do vidro -->
+    <ellipse cx="590" cy="386" rx="52" ry="16" fill="#8A3238" opacity=".2" filter="url(#mz-borrar3)"/>
+    <!-- ⭐ A NÉVOA. Bola de cristal de verdade tem fumaça dentro — e é ela que
+         dá fundo pro texto. Antes as palavras caíam em cima do especular e
+         sumiam. Aqui a leitura vem da física, não de uma caixa preta atrás. -->
+    <ellipse cx="590" cy="344" rx="63" ry="48" fill="#0A0C22" opacity=".68" filter="url(#mz-borrar16)"/>
+    <ellipse cx="592" cy="326" rx="52" ry="26" fill="#0A0C22" opacity=".5" filter="url(#mz-borrar8)"/>
+    <ellipse cx="578" cy="344" rx="34" ry="22" fill="#2A3160" opacity=".45" filter="url(#mz-borrar8)"/>
+    <ellipse cx="606" cy="366" rx="28" ry="17" fill="#1A2048" opacity=".4" filter="url(#mz-borrar8)"/>
+    <!-- especular principal e secundário -->
+    <ellipse cx="551" cy="301" rx="21" ry="13" fill="#FFF9E8" opacity=".52" transform="rotate(-30 551 301)"/>
+    <ellipse cx="545" cy="295" rx="8.4" ry="5.6" fill="#FFFFFF" opacity=".65" transform="rotate(-30 545 295)"/>
+    <ellipse cx="616" cy="384" rx="13" ry="8" fill="#CBD8FF" opacity=".2" transform="rotate(-26 616 384)"/>
+    <!-- luz da lua raspando a borda de cima -->
+    <path d="M528 322 a78 78 0 0 1 96 -46" fill="none" stroke="#DCE6FF" stroke-width="2.2" opacity=".38"/>
+    <!-- luz das velas raspando a base -->
+    <path d="M534 388 a78 78 0 0 0 106 20" fill="none" stroke="#FFC97A" stroke-width="2" opacity=".3"/>
+    <circle cx="590" cy="346" r="78" fill="none" stroke="#E0BC68" stroke-width="1.4" opacity=".8"/>
+    <g fill="#CBD8FF">
+      <circle cx="560" cy="330" r="1.5" opacity=".7"/><circle cx="616" cy="342" r="1.1" opacity=".5"/>
+      <circle cx="576" cy="376" r="1.3" opacity=".45"/><circle cx="606" cy="314" r="1" opacity=".4"/>
+    </g>
+  </g>
+
+  <!-- ═══ VINHETA — o último véu. Sem ela a cena fica plana como recorte;
+       com ela o olho é puxado pro centro, que é onde está o número. ═══ -->
+  <rect y="70" width="1180" height="630" fill="url(#mz-vinheta)" pointer-events="none"/>
+</svg>
+  <div class="mesa-topo">
+    <span class="mesa-dia" id="mzDia"></span>
+    <p class="mesa-frase" id="mzFrase"></p>
+  </div>
+
+  <div class="mesa-bola">
+    <span class="k" id="mzBolaK">a mesa diz</span>
+    <span class="v" id="mzBolaV">—</span>
+  </div>
+
+  <div class="mesa-cartas" id="mzCartas"></div>
+
+  <button class="mesa-entrar" id="mzEntrar" type="button">entrar no painel</button>
 </div>
 
 <div class="tip" id="tip"></div>
@@ -1916,6 +2965,9 @@ async function iniciar(){
     if (!DADOS && window.DADOS_DEMO){ DADOS = window.DADOS_DEMO; ESTADO.origem = "demo"; render(); }
     else if (!DADOS){ falhar(e); }
   }
+  /* A mesa só se monta DEPOIS que o dado chega — cena bonita com número
+     errado é pior que cena nenhuma. E só uma vez por dia. */
+  if (CALC && CALC.dadosCarregados && !mesaJaVista()) abrirMesa();
 }
 
 async function sincronizar(){
@@ -2173,6 +3225,123 @@ function versoDoArcano(tela, c){
     tom: sem.e === "pode" ? "bom" : (sem.e === "nao" ? "ruim" : ""),
     d: c.folegoDias != null ? "O caixa segura " + fmtFolego(c.folegoDias) + " sem entrar nada." : "",
     b:"indicadores" };
+}
+
+/* ══════════ A MESA DA CIGANA ════════════════════════════════════
+   A entrada do dia. Aparece uma vez, na primeira abertura, e some.
+
+   ⭐ A REGRA QUE SUSTENTA A CENA: nenhum objeto é enfeite. Cada um lê um
+   número do Organizze e muda sozinho. Se um dia alguém acrescentar um
+   objeto que não lê nada, a mesa vira cenário — e aí ela não vale o peso
+   que tem. Oito objetos, oito funções:
+     lua      → o semáforo (pode / calma / melhor não)
+     velas    → quanto do mês já queimou
+     bola     → a prioridade do dia (o mesmo conselho da Tiragem)
+     moedas   → o caixa, sem dígito
+     lanterna → acesa só quando tem janela correndo
+     baú      → a reserva de emergência (fechado = ainda não existe)
+     pandeiro → o gasto livre do mês
+     incenso  → as assinaturas queimando sozinhas                        */
+
+var CHAVE_MESA = "painel:mesa:";
+
+function mesaJaVista(){
+  try { return localStorage.getItem(CHAVE_MESA + DADOS.hoje) === "1"; } catch(e){ return true; }
+}
+function marcarMesaVista(){
+  try { localStorage.setItem(CHAVE_MESA + DADOS.hoje, "1"); } catch(e){}
+}
+
+/* A LUA muda de fase com o semáforo. A sombra que faz a foice desliza:
+   cheia = sombra fora do disco; nova = sombra cobrindo tudo. */
+function mesaLua(estado){
+  var dx = estado === "pode" ? 92 : (estado === "calma" ? 19 : 2);
+  ["mzLuaSombra","mzLuaSombra2"].forEach(function(id){
+    var e = el(id); if (e) e.setAttribute("cx", dx);
+  });
+}
+
+/* AS VELAS encurtam conforme o mês anda. No dia 1º estão inteiras;
+   no fim do mês, tocos. É o único jeito de mostrar tempo sem número. */
+function mesaVelas(fracao){
+  var g = el("mzVelas"); if (!g) return;
+  var restante = Math.max(.18, 1 - fracao);
+  var corpos = g.querySelectorAll("g");
+  for (var i=0;i<corpos.length;i++){
+    corpos[i].setAttribute("transform",
+      corpos[i].getAttribute("transform").replace(/ scale\\([^)]*\\)/, "") +
+      " scale(1," + (0.35 + restante * 0.65).toFixed(3) + ")");
+  }
+}
+
+/* AS MOEDAS: uma pilha por faixa de mil reais, até seis. Caixa magro,
+   mesa com poucas moedas — sem dígito nenhum, e ele entende na hora. */
+function mesaMoedas(caixaCents){
+  var g = el("mzMoedas"); if (!g) return;
+  var quantas = Math.max(1, Math.min(6, Math.round(caixaCents / 100000)));
+  var grupos = g.children;
+  for (var i=0;i<grupos.length;i++) grupos[i].style.display = i < quantas ? "" : "none";
+}
+
+/* A LANTERNA só acende quando existe prazo correndo. */
+function mesaLanterna(acesa){
+  var g = el("mzLanterna"); if (!g) return;
+  g.style.opacity = acesa ? "1" : ".34";
+  var ch = g.querySelector(".mesa-chama");
+  if (ch) ch.style.display = acesa ? "" : "none";
+}
+
+function montarMesa(c){
+  var no = el("mzCartas"); if (!no) return;
+  var q = c.conselho || {};
+
+  el("mzDia").textContent = "a mesa de " + DADOS.hoje.slice(8,10) + "/" + DADOS.hoje.slice(5,7);
+  el("mzFrase").innerHTML = esc(q.txt || "");
+  el("mzBolaK").textContent = q.rot || "a mesa diz";
+  el("mzBolaV").textContent = q.val || "—";
+
+  mesaLua((c.semaforo || {}).e || "calma");
+  mesaVelas(c.diaDoMes && c.diasNoMes ? c.diaDoMes / c.diasNoMes : .5);
+  mesaMoedas(c.caixaCents);
+  mesaLanterna(q.rot === "A janela");
+
+  var giros = [-9,-5,-2,2,5,9], sobe = [6,2,0,0,2,6];
+  no.innerHTML = "";
+  ARCANOS.forEach(function(a,i){
+    var v = versoDoArcano(a.tela, c);
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mesa-carta";
+    b.style.setProperty("--g", giros[i]); b.style.setProperty("--dy", sobe[i]);
+    b.setAttribute("aria-label", a.nome + " — abrir " + TITULOS[a.tela]);
+    b.innerHTML =
+      '<span class="rn">' + a.rn + '</span>' +
+      '<span class="fg"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" ' +
+        'stroke-width="2.2" stroke-linejoin="round">' + a.fig + '</svg></span>' +
+      '<span class="vv">' + esc(v.v) + '</span>' +
+      '<span class="lg">' + esc(v.k) + '</span>' +
+      '<span class="nm">' + a.nome + '</span>';
+    b.addEventListener("click", function(){ fecharMesa(a.tela); });
+    no.appendChild(b);
+  });
+}
+
+function abrirMesa(){
+  if (!CALC || !CALC.dadosCarregados) return;
+  var t = el("mesaTela"); if (!t) return;
+  montarMesa(CALC);
+  t.hidden = false;
+  requestAnimationFrame(function(){ t.classList.add("on"); });
+  var b = el("mzEntrar"); if (b) b.focus();
+}
+
+function fecharMesa(destino){
+  var t = el("mesaTela"); if (!t || t.hidden) return;
+  marcarMesaVista();
+  t.classList.add("saindo"); t.classList.remove("on");
+  setTimeout(function(){
+    t.hidden = true; t.classList.remove("saindo");
+    if (destino) irPara(destino);
+  }, 560);
 }
 
 /* ═══ O LEQUE ═════════════════════════════════════════════════════
@@ -3109,6 +4278,14 @@ try {
   montarLeque();
   var tl = localStorage.getItem("painel:tela"); if (tl && TITULOS[tl]) irPara(tl);
   else irPara("baralho");
+
+  var bEnt = el("mzEntrar");
+  if (bEnt) bEnt.addEventListener("click", function(){ fecharMesa(null); });
+  var bRev = el("btnRever");
+  if (bRev) bRev.addEventListener("click", function(){ abrirMesa(); });
+  document.addEventListener("keydown", function(ev){
+    if (ev.key === "Escape") fecharMesa(null);
+  });
   // clicar na marca sempre volta pro baralho — é o "início" do painel
   var marca = document.querySelector(".marca");
   if (marca){
