@@ -48,6 +48,19 @@ export default {
 
     const autenticado = await conferir(req, env);
 
+    /* Diagnóstico: devolve /accounts como a API mandou, sem tocar em nada.
+       Existe porque eu já errei TRÊS nomes de campo tentando adivinhar onde
+       o Organizze guarda o saldo. É a conta do próprio Michel, no Worker
+       dele, atrás da mesma senha — e some quando o saldo estiver certo. */
+    if (p === "/api/bruto") {
+      if (!autenticado) return json({ erro: "sessao" }, 401);
+      try {
+        return json({ accounts: await org(env, "/accounts") });
+      } catch (e) {
+        return json({ erro: String(e && e.message || e) }, 502);
+      }
+    }
+
     if (p === "/api/bootstrap") {
       if (!autenticado) return json({ erro: "sessao" }, 401);
       try {
@@ -218,8 +231,21 @@ async function montarDados(env) {
   // Por isso o painel agora sabe DE ONDE veio o saldo e avisa quando ele é
   // estimado. Número que o painel não pode conferir não pode ser dito com
   // a mesma cara de um que ele confere.
+  /* ⚠️⚠️ CONTA-RADAR NÃO É DINHEIRO.
+     O Michel: "ele fala que tenho -31k em conta (o que é mentira) e cita 5
+     contas, sendo que só tenho MercadoPago, Nubank e Inter."
+
+     As outras duas são manuais: `cofrinhos` (que TEM dinheiro de verdade) e
+     `Receitas e despesas previstas` — que NÃO tem saldo nenhum. Ela existe
+     só pra estacionar previsão, e é regra do próprio Michel: marcar algo
+     como pago ali sem mover dinheiro deixa ela negativa. Meses disso viraram
+     um buraco de dezenas de milhares que o painel somava no caixa.
+
+     O Organizze mostra R$ 0,00 pra ela. O painel tem que ignorá-la. */
+  const EH_RADAR = a => /receitas?\s+e\s+despesas?\s+previst/i.test(a.name || "");
+
   let saldoOrigem = "api";
-  const contas = contasRaw.filter(a => !a.archived).map(a => {
+  const contas = contasRaw.filter(a => !a.archived && !EH_RADAR(a)).map(a => {
     /* ⚠️ O NOME DO CAMPO É O PROBLEMA. Eu testei balance_cents,
        balance_in_cents e current_balance_cents — e nenhum bateu, então o
        painel caía na soma e mostrava caixa de -R$ 31 mil.
@@ -3748,7 +3774,11 @@ function avisarLeituraVelha(){
 
 /* Aviso honesto: o painel diz de onde tirou o caixa. */
 function avisarSaldoEstimado(){
-  var alvo = el("hFaixa");
+  /* ⚠️ ISTO JÁ FICOU ABAIXO DA DOBRA. Eu inseria o aviso depois do bloco
+     da faixa, e o Michel nunca chegou a vê-lo — pedi print dele duas vezes
+     e as duas ele mandou a tela sem o aviso, porque estava fora do quadro.
+     Aviso sobre um número tem que vir ANTES do número. */
+  var alvo = el("hEscopo");
   if (!alvo || !alvo.parentNode) return;
   var ja = el("avisoSaldo");
   if (DADOS.saldoOrigem !== "somado"){ if (ja) ja.remove(); return; }

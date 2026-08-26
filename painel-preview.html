@@ -3521,7 +3521,11 @@ function avisarLeituraVelha(){
 
 /* Aviso honesto: o painel diz de onde tirou o caixa. */
 function avisarSaldoEstimado(){
-  var alvo = el("hFaixa");
+  /* ⚠️ ISTO JÁ FICOU ABAIXO DA DOBRA. Eu inseria o aviso depois do bloco
+     da faixa, e o Michel nunca chegou a vê-lo — pedi print dele duas vezes
+     e as duas ele mandou a tela sem o aviso, porque estava fora do quadro.
+     Aviso sobre um número tem que vir ANTES do número. */
+  var alvo = el("hEscopo");
   if (!alvo || !alvo.parentNode) return;
   var ja = el("avisoSaldo");
   if (DADOS.saldoOrigem !== "somado"){ if (ja) ja.remove(); return; }
