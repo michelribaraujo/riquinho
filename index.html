@@ -117,10 +117,18 @@ a{color:inherit}
    sinais somados, porque um só nunca basta: ela sobe e endireita, vira
    pra cima em pergaminho claro entre cartas escuras, ganha halo de ouro,
    e o nome dela aparece embaixo — dentro do véu, nunca sobre o conteúdo. */
+/* ⚠️⚠️ SEM `transform` AQUI. Este elemento tinha `translateX(-50%)` pra
+   centralizar — e um ancestral com transform vira CONTAINING BLOCK dos
+   filhos `position:fixed`. O véu do ::before, que devia atravessar a tela
+   inteira, passou a se medir por ESTE elemento: virou um retângulo de
+   268px pendurado atrás das cartas. O Michel viu "um desenho de quadrado
+   que extrapola a barra".
+   Centralizar com left:0/right:0 + align-items:center não cria containing
+   block, e o fixed volta a ser fixed de verdade.                        */
 .leque{
-  position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:60;
+  position:fixed;left:0;right:0;bottom:10px;z-index:60;
   display:flex;flex-direction:column;align-items:center;gap:7px;
-  pointer-events:none;max-width:calc(100% - 16px);
+  pointer-events:none;
 }
 .leque::before{
   content:"";position:fixed;left:0;right:0;bottom:0;height:210px;z-index:-1;
