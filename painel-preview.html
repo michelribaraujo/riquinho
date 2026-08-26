@@ -206,9 +206,14 @@ a{color:inherit}
 .carta-nav:hover{transform:rotate(var(--rot)) translateY(-8px)}
 .carta-nav:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:9px}
 
+/* ⚠️ A CARTA SACADA NÃO RECEBE CLIQUE. Erguida e crescida, ela cobria a
+   área clicável da vizinha e o Michel não conseguia acertar a carta do
+   lado. E não faz falta: ela é a tela em que você JÁ ESTÁ — clicar nela
+   não leva a lugar nenhum. Sem pointer-events, o clique atravessa e chega
+   em quem está embaixo. */
 .carta-nav[aria-current="true"]{
   transform:rotate(calc(var(--rot) * .5)) translateY(-24px) scale(1.04);
-  z-index:20;transition-delay:0s;
+  z-index:20;transition-delay:0s;pointer-events:none;
 }
 .carta-nav[aria-current="true"] .giro{transform:rotateY(180deg)}
 .carta-nav[aria-current="true"] .frente-nav{
@@ -249,7 +254,9 @@ a{color:inherit}
   .carta-nav,.leque-sig,.giro{transition-duration:.12s;transition-delay:0s}
 }
 
-.main{min-width:0;display:flex;flex-direction:column}
+/* o leque flutua por cima: o fim da página precisa de ar embaixo, senão a
+   última linha das listas some atrás da mão de cartas */
+.main{min-width:0;display:flex;flex-direction:column;padding-bottom:196px}
 
 .topo{
   position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);
@@ -496,6 +503,17 @@ svg.g{display:block;width:100%;overflow:visible}
   text-align:center;max-width:min(560px,86%)}
 .mesa-frase b{color:#FFF3D6;font-weight:600}
 
+/* ⚠️⚠️ POSIÇÃO CALCULADA EM JS, NÃO EM PORCENTAGEM.
+   O SVG da mesa usa preserveAspectRatio="xMidYMax slice": ele COBRE a
+   caixa e é ancorado embaixo. Isso significa que a posição da bola na
+   tela NÃO é uma fração fixa do container — ela depende do recorte, e
+   muda com a proporção da janela.
+
+   Eu tinha posicionado o texto em top:43.5%, e os dois só coincidiam numa
+   proporção específica. Em qualquer outra o texto saía torto dentro do
+   vidro. Agora a posição vem do getScreenCTM() do próprio SVG, lida de um
+   ponto-âncora invisível no centro da esfera: onde a bola estiver
+   desenhada, o texto está.                                              */
 /* ⚠️ A largura é a da ESFERA, não do gosto: 152px é o que cabe dentro do
    vidro sem o texto vazar pelas bordas. "em 21 dias" já estourou aqui. */
 /* ⚠️ O AVISO DE SALDO ESTIMADO. Enquanto a API do Organizze não devolver
@@ -508,8 +526,10 @@ svg.g{display:block;width:100%;overflow:visible}
   background:var(--warn-soft);font-size:12px;color:var(--ink2);line-height:1.45;
 }
 .aviso-saldo b{color:var(--ink);font-weight:600}
-.mesa-bola{position:absolute;left:50%;top:43.5%;transform:translate(-50%,-50%);
-  text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none}
+.mesa-bola{position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none;
+  opacity:0;transition:opacity .3s ease}
+.mesa-bola.posto{opacity:1}
 .mesa-bola .k{font-family:var(--fonte-num);font-size:9px;font-weight:500;
   text-transform:uppercase;letter-spacing:.2em;color:#FFDFA0;display:block;
   text-shadow:0 1px 6px rgba(6,8,20,.95),0 0 16px rgba(6,8,20,.8)}
@@ -697,7 +717,15 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
    Carimbo de cera. Fica torto de propósito: carimbo reto parece badge
    de gamificação, e isso é a última coisa que este painel quer ser. */
 .selo-caixa{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.selo{flex:0 0 auto;transform:rotate(-7deg);color:var(--ouro)}
+/* ⚠️⚠️ ISTO JÁ SE CHAMOU `.selo` — e `.selo` JÁ EXISTIA: é o chip de
+   procedência do topo ("Organizze · 26/08"). Como esta regra vem depois,
+   ela venceu, e o chip do topo passou a herdar `transform:rotate(-7deg)`.
+   O Michel viu um chip cortado na diagonal e perguntou se eu achava
+   aquilo normal. Não era corte: era o chip TORTO.
+
+   Terceira colisão de nome na mesma semana (renderSelo, .face, .selo).
+   Por isso o build.mjs agora acusa seletor duplicado antes de publicar. */
+.carimbo{flex:0 0 auto;transform:rotate(-7deg);color:var(--ouro)}
 .selo-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .selo-txt .t{font-family:var(--fonte-display);font-size:22px;font-weight:600;line-height:1.15}
 .selo-txt .s{font-size:13.5px;color:var(--ink2);line-height:1.5}
@@ -836,9 +864,6 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
   .tela{padding:var(--e3) var(--e4)}
 }
 
-/* o leque flutua por cima do conteúdo — o fim da página precisa de ar
-   embaixo, senão a última linha some atrás da mão de cartas */
-.main{padding-bottom:196px}
 @media (max-width:560px){ .main{padding-bottom:172px} }
 
 @media print{.leque,.topo .btn-sync{display:none}}
@@ -1978,6 +2003,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
     <path d="M552 428 q38 18 76 0 l-3 8 q-35 15 -70 0 z" fill="#6B4C18"/>
     <circle cx="590" cy="346" r="150" fill="url(#mz-brilhoBola)" class="mesa-halo"/>
     <circle cx="590" cy="346" r="78" fill="url(#mz-cristal)"/>
+    <circle id="mzAncora" cx="590" cy="346" r="0.1" fill="none"/>
     <!-- refração: a mesa aparece invertida dentro do vidro -->
     <ellipse cx="590" cy="386" rx="52" ry="16" fill="#8A3238" opacity=".2" filter="url(#mz-borrar3)"/>
     <!-- ⭐ A NÉVOA. Bola de cristal de verdade tem fumaça dentro — e é ela que
@@ -2011,7 +2037,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
     <p class="mesa-frase" id="mzFrase"></p>
   </div>
 
-  <div class="mesa-bola">
+  <div class="mesa-bola" id="mesaBola">
     <span class="k" id="mzBolaK">a mesa diz</span>
     <span class="v" id="mzBolaV">—</span>
   </div>
@@ -2945,7 +2971,7 @@ function renderSeloMes(m){
   bloco.hidden = false;
 
   node.innerHTML =
-    '<svg class="selo" width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">' +
+    '<svg class="carimbo" width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">' +
       '<circle cx="38" cy="38" r="33" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>' +
       '<circle cx="38" cy="38" r="28" fill="none" stroke="currentColor" stroke-width=".8" opacity=".35"/>' +
       '<path d="M38 16 L42.2 33.4 L59 26.2 L51.6 41.6 L59 57 L42.2 49.8 L38 67 L33.8 49.8 L17 57 L24.4 41.6 L17 26.2 L33.8 33.4 Z" ' +
@@ -3198,14 +3224,51 @@ function montarMesa(c){
 /* Reabrir na mão é sempre permitido — o que acontece uma vez por dia é a
    abertura AUTOMÁTICA. Cerimônia forçada duas vezes cansa; cerimônia
    procurada, não. */
+/* Põe o texto exatamente sobre a esfera, lendo a matriz de tela do SVG.
+   Chamado ao abrir e a cada resize: o slice muda o recorte, e a bola
+   anda junto. */
+function ancorarTextoDaBola(){
+  var svg = document.querySelector(".mesa-fundo"),
+      alvo = el("mzAncora"), cx = el("mesaBola"), tela = el("mesaTela");
+  if (!svg || !alvo || !cx || !tela || tela.hidden) return;
+  var m = alvo.getScreenCTM ? alvo.getScreenCTM() : null;
+  if (!m){ cx.classList.add("posto"); return; }
+  var p = svg.createSVGPoint();
+  p.x = Number(alvo.getAttribute("cx")); p.y = Number(alvo.getAttribute("cy"));
+  var q = p.matrixTransform(m);
+  var caixa = tela.getBoundingClientRect();
+  cx.style.left = (q.x - caixa.left) + "px";
+  cx.style.top  = (q.y - caixa.top)  + "px";
+  cx.classList.add("posto");
+}
+
 function abrirMesa(){
   if (!CALC || !CALC.dadosCarregados) return;
   var t = el("mesaTela"); if (!t) return;
   montarMesa(CALC);
   t.hidden = false;
-  requestAnimationFrame(function(){ t.classList.add("on"); });
+  requestAnimationFrame(function(){
+    t.classList.add("on");
+    /* ⚠️ ANCORAR DUAS VEZES, E A SEGUNDA DEPOIS DA TRANSIÇÃO. A mesa abre
+       com transform:scale(1.03)→scale(1); ler o getScreenCTM no meio dessa
+       transição dá a posição ESCALADA, e o texto assentava ~19px fora do
+       centro da esfera. A primeira chamada evita o texto piscar longe; a
+       segunda, quando o scale já pousou, é a que vale. */
+    ancorarTextoDaBola();
+  });
+  t.addEventListener("transitionend", function ao(ev){
+    if (ev.propertyName !== "transform") return;
+    ancorarTextoDaBola();
+    t.removeEventListener("transitionend", ao);
+  });
+  setTimeout(ancorarTextoDaBola, 820);   // rede, caso o transitionend não venha
   var b = el("mzEntrar"); if (b) b.focus();
 }
+
+window.addEventListener("resize", function(){
+  clearTimeout(window.__mzT);
+  window.__mzT = setTimeout(ancorarTextoDaBola, 120);
+});
 
 function fecharMesa(destino){
   var t = el("mesaTela"); if (!t || t.hidden) return;
