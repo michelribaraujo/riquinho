@@ -487,6 +487,15 @@ svg.g{display:block;width:100%;overflow:visible}
    saldo de conta, o painel soma os lançamentos a partir de INICIO — e essa
    soma só fecha se INICIO estiver certo. Número que o painel não pode
    conferir NÃO pode ser dito com a mesma cara de um que ele confere. */
+/* A falha da leitura, dita em voz alta e no topo — não escondida num selo */
+.faixa-erro{
+  margin:0 0 var(--e3);padding:12px 14px;border-radius:8px;
+  border:1px solid var(--line2);border-left:3px solid var(--crit);
+  background:var(--crit-soft);display:flex;gap:10px;align-items:flex-start;
+  font-size:13px;color:var(--ink2);line-height:1.5;
+}
+.faixa-erro b{color:var(--ink);font-weight:600}
+.faixa-erro .q{font-family:var(--fonte-num);font-size:11.5px;color:var(--ink3);display:block;margin-top:3px}
 .aviso-saldo{
   display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:8px 10px;
   border:1px solid var(--line2);border-left:2px solid var(--warn);border-radius:6px;
@@ -2028,7 +2037,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 
 var DADOS = null;
 var CALC  = {};
-var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—" };
+var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—", erroRede:null };
 /* Categorias que alimentam a alma ou a saúde. O painel mostra o número,
    mas NUNCA as aponta como problema num insight. */
 var INTOCAVEIS = ["Religião","Saúde","chá","Prevenção e saúde"];
@@ -2599,10 +2608,33 @@ function lerCache(){
 }
 
 async function buscarDaRede(){
-  var r = await fetch("/api/bootstrap", { headers:{ "accept":"application/json" }, credentials:"same-origin" });
+  /* ⚠️ O ERRO PRECISA CHEGAR NA TELA. Antes, quando a leitura falhava, o
+     painel caía no cache e escrevia só "Retrato guardado — toque em
+     Atualizar". O Michel apertava Atualizar, nada mudava, e ele não tinha
+     como saber que a chamada estava morrendo — nem eu.
+     Falha escondida atrás de dado velho é pior que falha. */
+  var r;
+  try {
+    r = await fetch("/api/bootstrap", { headers:{ "accept":"application/json" }, credentials:"same-origin" });
+  } catch(e){
+    ESTADO.erroRede = "não consegui alcançar o servidor (" + (e && e.message ? e.message : "rede") + ")";
+    throw e;
+  }
   if (r.status === 401){ location.href = "/login"; throw new Error("sessao"); }
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return await r.json();
+  if (!r.ok){
+    var corpo = "";
+    try { corpo = (await r.text()).slice(0, 260); } catch(e2){}
+    ESTADO.erroRede = "o servidor respondeu HTTP " + r.status + (corpo ? " — " + corpo : "");
+    throw new Error("HTTP " + r.status);
+  }
+  try {
+    var d = await r.json();
+    ESTADO.erroRede = null;
+    return d;
+  } catch(e3){
+    ESTADO.erroRede = "a resposta veio, mas não era JSON válido";
+    throw e3;
+  }
 }
 
 async function iniciar(){
@@ -2646,6 +2678,7 @@ function falhar(e){
 }
 function avisarFalha(){
   var s = el("selo"); s.classList.add("alerta");
+  s.title = ESTADO.erroRede || "";
   s.innerHTML = '<span class="ponto"></span><b>Rede falhou — mostrando o retrato guardado</b>';
 }
 
@@ -3152,6 +3185,7 @@ function renderHoje(){
   renderEclipse(c);
 
   var dias = emDiasDeCasa(c.tetoDiaCents, c.casaDiaCents);
+  avisarLeituraVelha();
   avisarSaldoEstimado();
 
   el("hCasa").textContent = c.casaDiaCents > 0
@@ -3255,6 +3289,27 @@ function renderTiragem(c){
 /* O ECLIPSE na tela. Duas leituras possíveis, nunca uma bronca:
    - a linha cruza o zero  → mostra QUANDO e QUANTO, com a régua da casa
    - a linha nunca cruza   → diz isso, que é notícia boa e merece ser dita */
+/* Quando os números na tela não vieram do Organizze agora, isso tem que
+   estar escrito ANTES deles — não num selo discreto no canto. */
+function avisarLeituraVelha(){
+  var alvo = el("hEscopo"); if (!alvo || !alvo.parentNode) return;
+  var ja = el("faixaErro");
+  if (ESTADO.origem === "rede"){ if (ja) ja.remove(); return; }
+  var quando = DADOS.geradoEm
+    ? new Date(DADOS.geradoEm).toLocaleString("pt-BR",
+        {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
+    : "data desconhecida";
+  var motivo = ESTADO.erroRede || (ESTADO.origem === "demo"
+    ? "o painel está rodando com o retrato de demonstração"
+    : "a leitura ainda não foi feita nesta sessão");
+  var n = ja || document.createElement("div");
+  n.className = "faixa-erro"; n.id = "faixaErro";
+  n.innerHTML = '<span>⚠</span><span><b>Estes números não vieram do Organizze agora.</b> ' +
+    esc(motivo) + '.<span class="q">retrato guardado em ' + esc(quando) +
+    ' · toque em Atualizar pra tentar de novo</span></span>';
+  if (!ja) alvo.parentNode.insertBefore(n, alvo);
+}
+
 /* Aviso honesto: o painel diz de onde tirou o caixa. */
 function avisarSaldoEstimado(){
   var alvo = el("hFaixa");
