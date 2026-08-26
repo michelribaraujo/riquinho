@@ -55,7 +55,16 @@ export default {
     if (p === "/api/bruto") {
       if (!autenticado) return json({ erro: "sessao" }, 401);
       try {
-        return json({ accounts: await org(env, "/accounts") });
+        const d = await montarDados(env);
+        return json({
+          inicio: d.inicioSaldo, hoje: d.hoje,
+          fatiasLidas: d.fatiasLidas, lancLidos: d.lancLidos,
+          camposConta: d.camposConta,
+          camposLanc: d.camposLanc, camposLancCartao: d.camposLancCartao,
+          fatias: d.contagemFatia,
+          accounts: await org(env, "/accounts"),
+          auditoria: d.auditoria
+        });
       } catch (e) {
         return json({ erro: String(e && e.message || e) }, 502);
       }
@@ -161,13 +170,23 @@ async function montarDados(env) {
   const hoje = new Date();
   const hojeISO = iso(hoje);
   const ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
-  const inicio = env.INICIO || "2024-01-01";
+  /* ⚠️ O INÍCIO NÃO PODE SER UM CHUTE. A soma do saldo só fecha se ela
+     começar exatamente onde os dados começam. Por isso o início nasce da
+     conta mais antiga do próprio Organizze (inclusive as arquivadas, que
+     guardam o histórico), arredondado pro primeiro dia do mês. */
+  let inicio = env.INICIO || null;
 
   const [contasRaw, cartoesRaw, categoriasRaw] = await Promise.all([
     org(env, "/accounts"),
     org(env, "/credit_cards"),
     org(env, "/categories")
   ]);
+
+  if (!inicio) {
+    const nascimentos = (contasRaw || []).map(a => String(a.created_at || "").slice(0, 10))
+                                         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+    inicio = nascimentos.length ? nascimentos[0].slice(0, 7) + "-01" : "2024-01-01";
+  }
 
   const cartoes = cartoesRaw.filter(c => !c.archived).map(c => ({
     id: c.id, nome: c.name, fechamento: c.closing_day, vencimento: c.due_day,
@@ -196,22 +215,39 @@ async function montarDados(env) {
     });
   });
 
-  // Transações: do INICIO até 6 meses à frente, em fatias de 3 meses.
+  /* Transações: do INICIO até 6 meses à frente, UM MÊS POR VEZ.
+     ⚠️ A doc do Organizze diz, com todas as letras, que "a paginação de
+     movimentações é feita com os parâmetros start_date e end_date". Ou seja:
+     não existe page/per_page — quem tem que estreitar a janela é quem pergunta.
+     Fatias de 3 meses chegavam a 650 lançamentos e voltavam incompletas em
+     silêncio: o painel somava um pedaço do extrato e anunciava caixa de
+     -R$ 31 mil onde o Organizze mostrava +R$ 3 mil.
+     Um mês por vez é a única janela que o Organizze garante inteira. */
   const fim = iso(addMeses(hoje, 6));
+  /* O Worker tem teto de subrequisições. Um mês por fatia é o ideal; se o
+     histórico for longo demais pra caber, o passo abre pra 2 meses — sempre
+     nos meses antigos, que são os mais magros. */
+  const mesesTotais = (Number(fim.slice(0, 4)) - Number(inicio.slice(0, 4))) * 12
+                    + (Number(fim.slice(5, 7)) - Number(inicio.slice(5, 7))) + 1;
+  const passo = mesesTotais > 40 ? 2 : 1;
   const fatias = [];
   let cursor = new Date(inicio + "T12:00:00");
   while (iso(cursor) < fim) {
-    const prox = addMeses(cursor, 3);
+    const prox = addMeses(cursor, passo);
     fatias.push([iso(cursor), iso(prox) < fim ? iso(prox) : fim]);
     cursor = prox;
   }
-  const blocos = [];
-  for (const [a, b] of fatias) {
-    blocos.push(await org(env, `/transactions?start_date=${a}&end_date=${b}`));
-  }
+  const contagemFatia = [];
   const vistos = new Set();
   const lanc = [];
-  blocos.flat().forEach(t => { if (!vistos.has(t.id)) { vistos.add(t.id); lanc.push(t); } });
+  for (let i = 0; i < fatias.length; i += 6) {          // 6 meses por vez: rápido sem estourar o limite de subrequests
+    const lote = fatias.slice(i, i + 6);
+    const blocos = await Promise.all(lote.map(([a, b]) => org(env, `/transactions?start_date=${a}&end_date=${b}`)));
+    blocos.forEach((bloco, k) => {
+      contagemFatia.push({ de: lote[k][0], ate: lote[k][1], n: (bloco || []).length });
+      (bloco || []).forEach(t => { if (!vistos.has(t.id)) { vistos.add(t.id); lanc.push(t); } });
+    });
+  }
 
   const catNome = {}; (categoriasRaw || []).forEach(c => { catNome[c.id] = c.name; });
   const catPai  = {}; (categoriasRaw || []).forEach(c => { catPai[c.id] = c.parent_id; });
@@ -244,6 +280,17 @@ async function montarDados(env) {
      O Organizze mostra R$ 0,00 pra ela. O painel tem que ignorá-la. */
   const EH_RADAR = a => /receitas?\s+e\s+despesas?\s+previst/i.test(a.name || "");
 
+  /* ⚠️ CONTA ARQUIVADA NÃO É VIDA ATUAL. O Organizze guarda o histórico dela
+     (a `Conta inicial`, o Nubank antigo, a carteira do iFood) e a API devolve
+     esses lançamentos junto com os de hoje. Eles não podem virar gasto do mês
+     nem conta a pagar. A conta-radar (`Receitas e despesas previstas`) FICA:
+     ela não é dinheiro, mas é justamente onde moram as previsões. */
+  const idsContaViva = new Set(contasRaw.filter(a => !a.archived).map(a => a.id));
+  const idsCartaoVivo = new Set(cartoes.map(c => c.id));
+  const DA_CASA = t => ehCartao(t)
+    ? idsCartaoVivo.has(t.credit_card_id)
+    : idsContaViva.has(t.account_id);
+
   let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived && !EH_RADAR(a)).map(a => {
     /* ⚠️ O NOME DO CAMPO É O PROBLEMA. Eu testei balance_cents,
@@ -269,6 +316,26 @@ async function montarDados(env) {
     return { id: a.id, nome: a.name, manual: a.type === "other", saldoCents: s };
   });
 
+  /* AUDITORIA — o painel tem que conseguir provar o próprio caixa.
+     Enquanto o saldo for somado (a API não devolve saldo pronto), cada conta
+     carrega de onde veio o número dela: quantos lançamentos entraram, quantos
+     ficaram de fora e quais foram os maiores. Sem isso, um caixa errado é
+     indistinguível de um caixa certo — e já custou dias. */
+  const auditoria = contas.map(c => {
+    let n = 0, nPagos = 0, nCartao = 0;
+    const pesos = [];
+    for (const t of lanc) {
+      if (t.account_id !== c.id) continue;
+      n++;
+      if (ehCartao(t)) { nCartao++; continue; }
+      if (!t.paid) continue;
+      nPagos++;
+      pesos.push({ d: String(t.date).slice(0, 10), desc: t.description, cents: t.amount_cents });
+    }
+    pesos.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents));
+    return { id: c.id, nome: c.nome, saldoCents: c.saldoCents, n, nPagos, nCartao, maiores: pesos.slice(0, 6) };
+  });
+
   // Contas a pagar / a receber ainda em aberto (não pagas), em conta bancária.
   // ⚠️ ESTE LIMITE E O HORIZONTE DE projetar() ANDAM JUNTOS. Se aqui for menor,
   // o fim da linha do saldo fica artificialmente otimista: as faturas continuam
@@ -278,6 +345,7 @@ async function montarDados(env) {
   const aPagar = [], aReceber = [];
   for (const t of lanc) {
     if (t.paid || ehCartao(t)) continue;
+    if (!DA_CASA(t)) continue;
     const d = String(t.date).slice(0, 10);
     if (d > limite) continue;
     if (INTERNA(t)) continue;
@@ -325,6 +393,7 @@ async function montarDados(env) {
     for (const t of todos) {
       const d = String(t.date).slice(0, 10);
       if (d < d0 || d > d1) continue;
+      if (!DA_CASA(t)) continue;
       const raiz = nomeRaiz(t.category_id);
       if (t.amount_cents > 0) {
         bruta += t.amount_cents;
@@ -413,6 +482,10 @@ async function montarDados(env) {
        suficiente pra descobrir onde o Organizze guarda o saldo, e some da
        tela assim que saldoOrigem virar "api". */
     camposConta: Object.keys(contasRaw[0] || {}),
+    auditoria,
+    fatiasLidas: contagemFatia.length, lancLidos: lanc.length, contagemFatia,
+    camposLanc: Object.keys(lanc.find(t => !ehCartao(t)) || {}),
+    camposLancCartao: Object.keys(lanc.find(t => ehCartao(t)) || {}),
     mesRef: { ano, mes },
     contas, cartoes, faturas, aPagar, aReceber,
     gastoMes: { totalCents: gasto.totalCents, categorias: gasto.categorias },

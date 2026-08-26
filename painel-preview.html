@@ -3532,12 +3532,21 @@ function avisarSaldoEstimado(){
   if (ja) return;
   var n = document.createElement("div");
   n.className = "aviso-saldo"; n.id = "avisoSaldo";
-  var campos = (DADOS.camposConta || []).join(", ");
-  n.innerHTML = '<span>⚠</span><span>Este caixa é <b>somado</b> a partir de ' +
-    esc(DADOS.inicioSaldo || "2024-01-01") + ', porque o painel não achou o saldo pronto na ' +
-    'resposta da API. Se ele não bater com o app do Organizze, <b>não confie neste número</b>.' +
-    (campos ? '<br><span style="font-family:var(--fonte-num);font-size:10.5px;opacity:.75">' +
-      'campos que /accounts devolveu: ' + esc(campos) + '</span>' : '') + '</span>';
+  /* E o aviso mostra a CONTA DA CONTA: conta por conta, com o valor que o
+     painel somou. É a única linha da tela que o Michel consegue comparar,
+     olho no olho, com a tela de saldos do app — e é ela que aponta o dedo
+     pra conta errada quando o total não bate. */
+  var linhas = (DADOS.auditoria || []).map(function(a){
+    return '<div style="display:flex;justify-content:space-between;gap:10px">' +
+             '<span>' + esc(a.nome) + '</span>' +
+             '<b style="font-family:var(--fonte-num)">' + C(a.saldoCents) + '</b>' +
+           '</div>';
+  }).join("");
+  n.innerHTML = '<span>⚠</span><span>Este caixa é <b>somado</b> pelo painel a partir de ' +
+    esc(DADOS.inicioSaldo || "") + ', porque a API do Organizze não devolve saldo de conta. ' +
+    'Compare conta por conta com o app — se alguma não bater, é ela que está furada.' +
+    (linhas ? '<div style="margin-top:6px;font-size:11.5px;opacity:.85">' + linhas + '</div>' : '') +
+    '</span>';
   alvo.parentNode.insertBefore(n, alvo.nextSibling);
 }
 
