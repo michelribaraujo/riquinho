@@ -2179,7 +2179,24 @@ function recalcular(){
 
   /* RENDA DE REFERÊNCIA = o que se espera receber por mês daqui pra frente.
      É EXPECTATIVA, nunca extrato — só serve pros meses SEGUINTES. */
-  c.rendaRefCents = soma(DADOS.aReceber, function(r){ return r.cents; });
+  /* ⚠️ RENDA DE REFERÊNCIA É DE UM MÊS, NÃO DA JANELA INTEIRA.
+     Isto somava tudo que o Organizze espera receber nos próximos 3 meses e
+     chamava de "renda". Com dois salários previstos na janela, o painel
+     anunciou renda de referência de R$ 16.900,00 — o dobro da real. Agora
+     agrupa por mês e usa a MEDIANA dos meses que têm entrada: um mês atípico
+     (13º, PLR, reembolso) não vira salário. */
+  c.rendaRefCents = (function(){
+    var porMes = {};
+    (DADOS.aReceber || []).forEach(function(r){
+      var m = String(r.data).slice(0, 7);
+      porMes[m] = (porMes[m] || 0) + r.cents;
+    });
+    var vals = Object.keys(porMes).map(function(m){ return porMes[m]; })
+                     .filter(function(v){ return v > 0; }).sort(function(a, b){ return a - b; });
+    if (!vals.length) return 0;
+    var meio = Math.floor(vals.length / 2);
+    return vals.length % 2 ? vals[meio] : Math.round((vals[meio - 1] + vals[meio]) / 2);
+  })();
   c.pctComprometido = c.rendaRefCents > 0 ? c.recorrenteCents / c.rendaRefCents : 0;
 
   /* FÔLEGO — simulação mês a mês, não média. Média mente quando um mês tem duas faturas. */

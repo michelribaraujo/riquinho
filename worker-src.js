@@ -193,28 +193,10 @@ async function montarDados(env) {
     limiteCents: c.limit_cents || null
   }));
 
-  // Faturas de cada cartão (ano corrente). saldo != 0 => em aberto de verdade.
+  // Faturas de cada cartão (ano corrente). O SALDO só se decide depois de ler
+  // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
   const faturas = [];
-  faturasPorCartao.forEach((lista, i) => {
-    const c = cartoes[i];
-    (lista || []).forEach(f => {
-      const venc = String(f.date || "").slice(0, 10);
-      if (!venc) return;
-      const fecha = String(f.closing_date || "").slice(0, 10);
-      const abre  = String(f.starting_date || "").slice(0, 10);
-      let status;
-      if (abre && abre > hojeISO) status = "futura";
-      else if (fecha && hojeISO <= fecha) status = "emFormacao";
-      else if (venc < hojeISO && f.balance_cents !== 0) status = "vencida";
-      else status = "fechada";
-      faturas.push({
-        cartaoId: c.id, mes: venc.slice(0, 7), vencimento: venc,
-        valorCents: f.amount_cents || 0, saldoCents: f.balance_cents || 0, status
-      });
-    });
-  });
-
   /* Transações: do INICIO até 6 meses à frente, UM MÊS POR VEZ.
      ⚠️ A doc do Organizze diz, com todas as letras, que "a paginação de
      movimentações é feita com os parâmetros start_date e end_date". Ou seja:
@@ -248,6 +230,55 @@ async function montarDados(env) {
       (bloco || []).forEach(t => { if (!vistos.has(t.id)) { vistos.add(t.id); lanc.push(t); } });
     });
   }
+
+  /* ⚠️⚠️ FATURA PAGA NÃO É FATURA EM ABERTO.
+     O painel anunciava R$ 29.639,29 de fatura e R$ 18.130,14 a pagar em
+     agosto. A fatura de agosto do MercadoPago (R$ 10.358,02) JÁ ESTAVA PAGA —
+     o próprio Organizze mostrava só os R$ 7.772,12 do Inter. O erro: o painel
+     lia `balance_cents` e nunca perguntava se alguém tinha pagado.
+
+     E `balance_cents` NÃO zera quando a fatura é quitada (a de agosto continua
+     -R$ 10.358,02 mesmo paga). Então o pagamento se descobre por dois caminhos,
+     e vale o maior: o campo `payment_amount_cents` da própria fatura, e os
+     lançamentos que apontam pra ela via `paid_credit_card_invoice_id`.
+     ⚠️ O id da fatura se repete entre cartões (o 319 existe nos dois) — casar
+     só pelo id mistura as faturas. Tem que casar id E cartão. */
+  const pagoPorFatura = {};
+  for (const t of lanc) {
+    const cc = t.paid_credit_card_id, inv = t.paid_credit_card_invoice_id;
+    if (!inv) continue;
+    const k = (cc || "?") + ":" + inv;
+    pagoPorFatura[k] = (pagoPorFatura[k] || 0) + Math.abs(t.amount_cents || 0);
+  }
+  const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id);
+
+  faturasPorCartao.forEach((lista, i) => {
+    const c = cartoes[i];
+    (lista || []).forEach(f => {
+      const venc = String(f.date || "").slice(0, 10);
+      if (!venc) return;
+      const fecha = String(f.closing_date || "").slice(0, 10);
+      const abre  = String(f.starting_date || "").slice(0, 10);
+      const devido = Math.abs(f.amount_cents || 0);
+      const pago = Math.max(Math.abs(f.payment_amount_cents || 0),
+                            pagoPorFatura[c.id + ":" + f.id] || 0);
+      const aberto = Math.max(0, devido - pago);
+      let status;
+      if (abre && abre > hojeISO) status = "futura";
+      else if (fecha && hojeISO <= fecha) status = "emFormacao";
+      else if (aberto === 0) status = "paga";
+      else if (venc < hojeISO) status = "vencida";
+      else status = "fechada";
+      faturas.push({
+        cartaoId: c.id, mes: venc.slice(0, 7), vencimento: venc,
+        valorCents: f.amount_cents || 0,
+        // saldo = o que AINDA se deve, com sinal de despesa. Fatura paga vira 0
+        // e some sozinha de todo filtro que já existia no painel.
+        saldoCents: -aberto,
+        pagoCents: pago, status
+      });
+    });
+  });
 
   const catNome = {}; (categoriasRaw || []).forEach(c => { catNome[c.id] = c.name; });
   const catPai  = {}; (categoriasRaw || []).forEach(c => { catPai[c.id] = c.parent_id; });
@@ -401,7 +432,15 @@ async function montarDados(env) {
         continue;
       }
       if (INTERNA(t)) continue;
-      if (raiz && raiz.toLowerCase().indexOf("fatura") === 0) continue; // pagamento de fatura não é gasto novo
+      /* ⚠️ PAGAMENTO DE FATURA NÃO É GASTO NOVO — a compra já foi contada
+         quando aconteceu. Antes isto dependia da categoria começar com
+         "Fatura", e bastava um pagamento categorizado como "Dívidas e
+         empréstimos" pra furar: em agosto/2026 essa categoria apareceu com
+         R$ 12.184,50 quando o real era R$ 1.885,65, e o gasto do mês inteiro
+         subiu de R$ 22.631,59 pra R$ 32.930,44. Categoria é escolha do Michel;
+         o vínculo com a fatura é fato da API. */
+      if (PAGA_FATURA(t)) continue;
+      if (raiz && raiz.toLowerCase().indexOf("fatura") === 0) continue;
       const v = Math.abs(t.amount_cents);
       mapa[raiz] = (mapa[raiz] || 0) + v;
       const sub = catNome[t.category_id] || "—";
