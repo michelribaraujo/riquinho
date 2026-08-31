@@ -231,6 +231,12 @@ async function montarDados(env) {
     });
   }
 
+  const catNome = {}; (categoriasRaw || []).forEach(c => { catNome[c.id] = c.name; });
+  const catPai  = {}; (categoriasRaw || []).forEach(c => { catPai[c.id] = c.parent_id; });
+  function nomeRaiz(id) { const p = catPai[id]; return catNome[p] || catNome[id] || "Sem categoria"; }
+  function temTag(t, nome) { return (t.tags || []).some(x => (x.name || x) === nome); }
+  const INTERNA = t => temTag(t, "Transferência Interna") || nomeRaiz(t.category_id) === "Transferências";
+
   /* ⚠️⚠️ FATURA PAGA NÃO É FATURA EM ABERTO.
      O painel anunciava R$ 29.639,29 de fatura e R$ 18.130,14 a pagar em
      agosto. A fatura de agosto do MercadoPago (R$ 10.358,02) JÁ ESTAVA PAGA —
@@ -243,14 +249,56 @@ async function montarDados(env) {
      lançamentos que apontam pra ela via `paid_credit_card_invoice_id`.
      ⚠️ O id da fatura se repete entre cartões (o 319 existe nos dois) — casar
      só pelo id mistura as faturas. Tem que casar id E cartão. */
-  const pagoPorFatura = {};
-  for (const t of lanc) {
-    const cc = t.paid_credit_card_id, inv = t.paid_credit_card_invoice_id;
-    if (!inv) continue;
-    const k = (cc || "?") + ":" + inv;
-    pagoPorFatura[k] = (pagoPorFatura[k] || 0) + Math.abs(t.amount_cents || 0);
+  /* ⚠️ A API NÃO LINKA O PAGAMENTO À FATURA. Eu apostei que `paid_credit_card_id`
+     resolveria e o painel continuou cobrando uma fatura já paga. O pagamento
+     real do Michel é isto, e mais nada:
+        "Pagamento da fatura MercadoPago (agosto/2026)" · -R$ 10.043,72
+        06/08 · conta MercadoPago · categoria "Fatura Mercado Pago"
+     Um lançamento comum. Nenhum campo aponta pra fatura.
+     Então o vínculo se faz pelo que EXISTE: categoria raiz começando com
+     "Fatura", em conta bancária. É convenção do próprio Michel e está no
+     Organizze há meses. */
+  function chave(txt) {
+    return String(txt || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/cart(a|ã)o/g, "").replace(/[^a-z0-9]/g, "");
   }
-  const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id);
+  const EH_PAGTO_FATURA = t => !ehCartao(t) && /^fatura\b/i.test(nomeRaiz(t.category_id) || "");
+  const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id) || EH_PAGTO_FATURA(t);
+
+  /* Cada pagamento vai pro cartão cujo nome cabe dentro do nome da categoria
+     ("Fatura Mercado Pago" ⊃ "MercadoPago"), e dentro do cartão vai pra fatura
+     mais ANTIGA ainda aberta que já tinha fechado na data do pagamento. */
+  const pagoPorFatura = {};
+  const pagosSoltos = [];
+  for (const t of lanc) {
+    if (t.paid_credit_card_invoice_id) {
+      const k = (t.paid_credit_card_id || "?") + ":" + t.paid_credit_card_invoice_id;
+      pagoPorFatura[k] = (pagoPorFatura[k] || 0) + Math.abs(t.amount_cents || 0);
+      continue;
+    }
+    if (EH_PAGTO_FATURA(t) && t.amount_cents < 0) {
+      pagosSoltos.push({ data: String(t.date).slice(0, 10), cents: Math.abs(t.amount_cents),
+                         cat: chave(nomeRaiz(t.category_id)) });
+    }
+  }
+  pagosSoltos.sort((a, b) => a.data < b.data ? -1 : 1);
+  for (const p of pagosSoltos) {
+    let alvo = null;
+    for (let i = 0; i < cartoes.length; i++) {
+      const c = cartoes[i], nome = chave(c.nome);
+      if (!nome || !p.cat.includes(nome)) continue;
+      const lista = (faturasPorCartao[i] || [])
+        .filter(f => String(f.closing_date || "").slice(0, 10) <= p.data)
+        .filter(f => (pagoPorFatura[c.id + ":" + f.id] || 0) < Math.abs(f.amount_cents || 0))
+        .filter(f => Math.abs(f.amount_cents || 0) > 0)
+        .sort((a, b) => String(a.date) < String(b.date) ? -1 : 1);
+      if (lista.length && (!alvo || chave(c.nome).length > alvo.peso)) {
+        alvo = { k: c.id + ":" + lista[0].id, peso: nome.length };
+      }
+    }
+    if (alvo) pagoPorFatura[alvo.k] = (pagoPorFatura[alvo.k] || 0) + p.cents;
+  }
 
   faturasPorCartao.forEach((lista, i) => {
     const c = cartoes[i];
@@ -262,7 +310,13 @@ async function montarDados(env) {
       const devido = Math.abs(f.amount_cents || 0);
       const pago = Math.max(Math.abs(f.payment_amount_cents || 0),
                             pagoPorFatura[c.id + ":" + f.id] || 0);
-      const aberto = Math.max(0, devido - pago);
+      /* ⚠️ NÃO EXIGIR CENTAVO EXATO. A fatura de agosto do MercadoPago fechou
+         R$ 10.358,02 no Organizze e o banco cobrou R$ 10.043,72 — R$ 114,30 de
+         estorno da Steam que o banco abateu e o Organizze alocou noutro mês.
+         Exigir igualdade deixaria um resto fantasma de R$ 314,30 cobrando pra
+         sempre. Pagamento que cobre a maior parte da fatura quita a fatura,
+         que é como o Organizze e o Michel a enxergam. */
+      const aberto = (pago > 0 && pago >= devido * 0.85) ? 0 : Math.max(0, devido - pago);
       let status;
       if (abre && abre > hojeISO) status = "futura";
       else if (fecha && hojeISO <= fecha) status = "emFormacao";
@@ -280,11 +334,6 @@ async function montarDados(env) {
     });
   });
 
-  const catNome = {}; (categoriasRaw || []).forEach(c => { catNome[c.id] = c.name; });
-  const catPai  = {}; (categoriasRaw || []).forEach(c => { catPai[c.id] = c.parent_id; });
-  function nomeRaiz(id) { const p = catPai[id]; return catNome[p] || catNome[id] || "Sem categoria"; }
-  function temTag(t, nome) { return (t.tags || []).some(x => (x.name || x) === nome); }
-  const INTERNA = t => temTag(t, "Transferência Interna") || nomeRaiz(t.category_id) === "Transferências";
 
   // Saldo por conta = soma dos lançamentos PAGOS em conta bancária, desde INICIO.
   // Se a API algum dia passar a devolver saldo pronto, ele ganha prioridade.
