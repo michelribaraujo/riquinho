@@ -20,7 +20,12 @@ export const credit_cards = [
 ];
 
 export const categories = [
-  { id: 1, name: "Fatura Mercado Pago", parent_id: null },
+  /* ⚠️ ISTO É O QUE O ORGANIZZE DO MICHEL TEM DE VERDADE: a categoria do
+     pagamento de fatura é SUBcategoria de "Dívidas e empréstimos", não é
+     categoria de topo. A primeira versão do teste a colocou na raiz — e a
+     correção passou aqui e falhou no painel dele. Fixture que não copia a
+     forma do dado real testa a fantasia, não o produto. */
+  { id: 1, name: "Fatura Mercado Pago", parent_id: 5 },
   { id: 2, name: "Transferências",      parent_id: null },
   { id: 3, name: "Moradia",             parent_id: null },
   { id: 4, name: "Aluguel",             parent_id: 3 },

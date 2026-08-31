@@ -285,7 +285,19 @@ async function montarDados(env) {
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/cart(a|ã)o/g, "").replace(/[^a-z0-9]/g, "");
   }
-  const EH_PAGTO_FATURA = t => !ehCartao(t) && /^fatura\b/i.test(nomeRaiz(t.category_id) || "");
+  /* ⚠️ OLHAR A CATEGORIA CERTA. Testei só a categoria RAIZ e a correção não
+     pegou em produção: no Organizze do Michel, "Fatura Mercado Pago" NÃO é
+     categoria de topo — é SUBcategoria de "Dívidas e empréstimos" (163472211
+     sob 144288015). nomeRaiz() devolvia "Dívidas e empréstimos", que não
+     começa com "Fatura", e o pagamento seguia invisível. É a mesma raiz que
+     aparecia com R$ 12.184,50 em agosto contra R$ 1.885,65 reais: o pagamento
+     estava lá dentro o tempo todo. Agora vale a FOLHA ou a raiz — quem nomeia
+     a categoria é ele, e ele nomeou na folha. */
+  const CAT_FATURA = t => {
+    const folha = catNome[t.category_id] || "", raiz = nomeRaiz(t.category_id) || "";
+    return /^fatura\b/i.test(folha) ? folha : (/^fatura\b/i.test(raiz) ? raiz : "");
+  };
+  const EH_PAGTO_FATURA = t => !ehCartao(t) && !!CAT_FATURA(t);
   const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id) || EH_PAGTO_FATURA(t);
 
   /* Cada pagamento vai pro cartão cujo nome cabe dentro do nome da categoria
@@ -301,7 +313,7 @@ async function montarDados(env) {
     }
     if (EH_PAGTO_FATURA(t) && t.amount_cents < 0) {
       pagosSoltos.push({ data: String(t.date).slice(0, 10), cents: Math.abs(t.amount_cents),
-                         cat: chave(nomeRaiz(t.category_id)) });
+                         cat: chave(CAT_FATURA(t)) });
     }
   }
   pagosSoltos.sort((a, b) => a.data < b.data ? -1 : 1);
