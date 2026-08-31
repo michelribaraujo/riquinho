@@ -3,8 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F2F6F7">
+<meta name="theme-color" content="#F7F2E8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12142B" media="(prefers-color-scheme: dark)">
 <title>riquinho</title>
+<script>
+/* ⚠️ ESTE SCRIPT PRECISA SER O PRIMEIRO. O tema é decidido antes de qualquer
+   pixel: se ele esperar o boot lá do fim do body, o painel pinta pergaminho,
+   descobre que era noite e pisca. Piscar de tema é o único bug que o usuário
+   vê ANTES de a página existir. */
+(function(){
+  var t = null;
+  try { t = localStorage.getItem("painel:tema"); } catch(e){}
+  if (!t) { try { t = matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"; }
+            catch(e){ t = "escuro"; } }
+  document.documentElement.dataset.tema = t;
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="%2312142B"/><path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z" fill="none" stroke="%23D9B36A" stroke-width="1.1" stroke-linejoin="round"/><circle cx="16" cy="16" r="1.3" fill="%23D9B36A"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -827,6 +841,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 @media (max-width:1080px){
   :root{--rail:60px}
   .marca-txt,.marca-sub,.nav span,.mini-btn span{display:none}
+  .mini-btn.tema .tema-ico,.mini-btn.tema .tema-txt{display:inline}
   .nav button{justify-content:center;padding:11px 0}
   .rail-pe .linha{flex-direction:column}
   .tela{padding:var(--e4)}
@@ -836,6 +851,7 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
 @media (max-width:640px){
   .marca-txt,.marca-sub{display:none}
   .mini-btn span{display:none}
+  .mini-btn.tema .tema-ico,.mini-btn.tema .tema-txt{display:inline}
   .topo{padding:var(--e3) var(--e4);flex-wrap:wrap;gap:10px}
   .tela{padding:var(--e3) var(--e4)}
 }
@@ -884,7 +900,14 @@ body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
         </svg>
         Atualizar
       </button>
-      <button class="mini-btn" id="btnTema" title="Tema">◐<span>Tema</span></button>
+      <!-- ⭐ O BOTÃO DIZ PRA ONDE VAI, NÃO O QUE ELE É. Ele existia desde
+           sempre escrito "◐ Tema" — e o Michel usou o painel semanas sem
+           descobrir que havia um tema claro. "Tema" é uma categoria; ninguém
+           clica numa categoria. "☀ Claro" é uma promessa, e promessa se
+           clica. É por isso também que o rótulo dele NÃO some no celular,
+           mesmo os outros sumindo: um ícone sozinho volta a ser categoria. -->
+      <button class="mini-btn tema" id="btnTema" title="Trocar o tema"
+              aria-label="Trocar o tema"><span class="tema-ico">☀</span><span class="tema-txt">Claro</span></button>
       <button class="mini-btn" id="btnSair" title="Sair">⏻<span>Sair</span></button>
     </header>
 
@@ -4230,11 +4253,42 @@ el("pLimpar").addEventListener("click", function(ev){
   ev.stopPropagation();
   gravarPagos(CALC.sel.ym, []); render();
 });
+function temaDoAparelho(){
+  try { return matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"; }
+  catch(e){ return "escuro"; }
+}
+function rotularTema(){
+  var b = el("btnTema"); if (!b) return;
+  // o rótulo é o DESTINO, nunca o estado atual
+  var vaiPra = document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro";
+  b.querySelector(".tema-ico").textContent = vaiPra === "claro" ? "☀" : "☾";
+  b.querySelector(".tema-txt").textContent = vaiPra === "claro" ? "Claro" : "Escuro";
+  b.title = "Mudar para o tema " + vaiPra;
+  b.setAttribute("aria-label", b.title);
+}
+function aplicarTema(){
+  var salvo = null;
+  try { salvo = localStorage.getItem("painel:tema"); } catch(e){}
+  document.documentElement.dataset.tema = salvo || temaDoAparelho();
+  rotularTema();
+}
+try {
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", function(){
+    var salvo = null;
+    try { salvo = localStorage.getItem("painel:tema"); } catch(e){}
+    if (salvo) return;                       // escolha do dono vence o sistema
+    document.documentElement.dataset.tema = temaDoAparelho();
+    rotularTema();
+    if (CALC.dadosCarregados) render();
+  });
+} catch(e){}
+
 el("btnSync").addEventListener("click", sincronizar);
 el("btnTema").addEventListener("click", function(){
   var novo = document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro";
   document.documentElement.dataset.tema = novo;
   try { localStorage.setItem("painel:tema", novo); } catch(e){}
+  rotularTema();
   if (CALC.dadosCarregados) render();
 });
 el("btnSair").addEventListener("click", function(){ location.href = "/logout"; });
@@ -4255,7 +4309,12 @@ document.addEventListener("keydown", function(ev){
 
 /* --------------------------------------------------------------- boot ----- */
 try {
-  var tm = localStorage.getItem("painel:tema"); if (tm) document.documentElement.dataset.tema = tm;
+  /* ⚠️ O PADRÃO NÃO É MEU, É DO APARELHO. Antes o tema vinha travado no
+     HTML e só mudava se alguém achasse o botão. Agora: escolha salva manda;
+     sem escolha salva, vale o modo do sistema. E se ele trocar o modo do
+     celular com o painel aberto, o painel acompanha — a menos que ele já
+     tenha escolhido à mão, porque escolha do dono vence preferência do SO. */
+  aplicarTema();
   montarLeque();
   var tl = localStorage.getItem("painel:tela"); if (tl && TITULOS[tl]) irPara(tl);
   else irPara("hoje");
