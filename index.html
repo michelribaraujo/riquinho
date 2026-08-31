@@ -3,12 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F2F6F7">
+<meta name="theme-color" content="#F7F2E8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12142B" media="(prefers-color-scheme: dark)">
 <title>riquinho</title>
+<script>
+/* ⚠️ ESTE SCRIPT PRECISA SER O PRIMEIRO. O tema é decidido antes de qualquer
+   pixel: se ele esperar o boot lá do fim do body, o painel pinta pergaminho,
+   descobre que era noite e pisca. Piscar de tema é o único bug que o usuário
+   vê ANTES de a página existir. */
+(function(){
+  var t = null;
+  try { t = localStorage.getItem("painel:tema"); } catch(e){}
+  if (!t) { try { t = matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"; }
+            catch(e){ t = "escuro"; } }
+  document.documentElement.dataset.tema = t;
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="%2312142B"/><path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z" fill="none" stroke="%23D9B36A" stroke-width="1.1" stroke-linejoin="round"/><circle cx="16" cy="16" r="1.3" fill="%23D9B36A"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    1. TOKENS — uma régua só. Degrau só existe se for visível.
@@ -19,6 +33,9 @@
   --r-card:16px; --r-chip:9px; --r-pill:999px;
   --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
   --fonte-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  /* números vão em Plex Mono: é a fonte de tabela de efeméride, e resolve
+     alinhamento de coluna de graça. Fallback sempre monoespaçado. */
+  --fonte-num: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --rail:212px;
   --dur:.18s;
 }
@@ -34,6 +51,7 @@ html[data-tema="claro"]{
   --acc:#2C3563; --acc-ink:#F7F2E8; --acc-soft:rgba(44,53,99,.07);
   --indigo:#2C3563; --indigo-vivo:#414E8F; --noite:#191C33;
   --ouro:#C0913A; --ouro-luz:#D9B36A; --ouro-txt:#8A6420;
+  --terracota:#B0603F; --terracota-soft:rgba(176,96,63,.10);
   --good:#0A6E52; --warn:#8A6420; --serious:#8A6420; --crit:#7E3B47;
   --good-soft:rgba(10,110,82,.10); --crit-soft:rgba(126,59,71,.10); --warn-soft:rgba(138,100,32,.11);
   --s1:#5668d6; --s2:#c0913a; --s3:#a86fd0; --s4:#3fae8a; --s5:#c96a55; --s6:#2f9fbf;
@@ -49,6 +67,7 @@ html[data-tema="escuro"]{
   --acc:#8D9BE8; --acc-ink:#12142B; --acc-soft:rgba(141,155,232,.14);
   --indigo:#8D9BE8; --indigo-vivo:#414E8F; --noite:#0C0E20;
   --ouro:#D9B36A; --ouro-luz:#E8CC93; --ouro-txt:#D9B36A;
+  --terracota:#CE8058; --terracota-soft:rgba(206,128,88,.16);
   --good:#4BC79A; --warn:#D9B36A; --serious:#D9B36A; --crit:#D98A97;
   --good-soft:rgba(75,199,154,.13); --crit-soft:rgba(217,138,151,.13); --warn-soft:rgba(217,179,106,.13);
   --s1:#8d9be8; --s2:#d9b36a; --s3:#bd93e0; --s4:#4bc79a; --s5:#d98a76; --s6:#5fb8d6;
@@ -84,47 +103,151 @@ a{color:inherit}
 /* ============================================================
    2. ESQUELETO
    ============================================================ */
-.app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100%}
+.app{display:flex;flex-direction:column;min-height:100%}
 
-.rail{
-  position:sticky;top:0;height:100vh;border-right:1px solid var(--line);
-  background:var(--bg);display:flex;flex-direction:column;padding:var(--e4) var(--e3);gap:var(--e5);
-}
-.marca{display:flex;align-items:center;gap:10px;padding:0 var(--e2)}
-.marca-sig{width:30px;height:30px;flex:none;display:block}
-.marca-sig #marcaBoca{transition:d .3s ease-out}
+/* ── A MARCA, agora no topo ─────────────────────── */
+.marca{display:flex;align-items:center;gap:10px;cursor:pointer;flex:0 0 auto}
 .marca-txt{font-family:var(--fonte-display);font-size:19px;font-weight:600;letter-spacing:.01em;line-height:1.05}
-.marca-sub{font-size:var(--t-micro);color:var(--ink3);font-weight:400}
+.marca-sub{font-size:11px;color:var(--ink3);line-height:1.2}
+.marca-sig{width:32px;height:32px;flex:0 0 auto}
+.marca:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:6px}
 
-.nav{display:flex;flex-direction:column;gap:2px}
-.nav button::after{content:attr(data-arc);margin-left:auto;font-family:var(--fonte-display);
-  font-size:13px;color:var(--ouro-txt);opacity:.75;font-style:italic}
-.nav button{
-  display:flex;align-items:center;gap:11px;padding:9px var(--e2);border-radius:var(--r-chip);
-  color:var(--ink2);font-size:var(--t-corpo);font-weight:500;text-align:left;width:100%;
-  transition:background var(--dur),color var(--dur);
-}
-.nav button:hover{background:var(--sf);color:var(--ink)}
-.nav button[aria-current="true"]{background:var(--sf2);color:var(--ink)}
-.nav svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;
-  stroke-linecap:round;stroke-linejoin:round}
-.nav .badge{font-size:11px;padding:1px 6px;border-radius:var(--r-pill);
-  background:var(--crit);color:#fff;font-weight:600}
-
-.rail-pe{margin-top:auto;display:flex;flex-direction:column;gap:var(--e2)}
-.rail-pe .linha{display:flex;gap:var(--e1)}
-.mini-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;
-  border:1px solid var(--line);border-radius:var(--r-chip);color:var(--ink2);font-size:var(--t-micro)}
+.mini-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;
+  border:1px solid var(--line);background:transparent;color:var(--ink2);border-radius:8px;
+  cursor:pointer;font-size:12px}
 .mini-btn:hover{background:var(--sf);color:var(--ink)}
+.mini-btn:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
 
-.main{min-width:0;display:flex;flex-direction:column}
+/* ── O LEQUE ────────────────────────────────────────────────────
+   A navegação é uma mão de cartas segurada por um ponto só.
+
+   ⚠️ O QUE MUDOU E POR QUÊ (26/08): havia uma elipse escura atrás do
+   leque, e o Michel a chamou de "círculo oval estranho azul" — com
+   razão: um borrão que não é objeto nem superfície, só mancha. Saiu.
+   No lugar, um VÉU de largura total: a página desbota até o rodapé e o
+   leque nasce dentro desse desbotar. Véu é fundo; elipse solta é sujeira.
+
+   E não dava pra saber qual carta estava selecionada. Agora são QUATRO
+   sinais somados, porque um só nunca basta: ela sobe e endireita, vira
+   pra cima em pergaminho claro entre cartas escuras, ganha halo de ouro,
+   e o nome dela aparece embaixo — dentro do véu, nunca sobre o conteúdo. */
+/* ⚠️⚠️ SEM `transform` AQUI. Este elemento tinha `translateX(-50%)` pra
+   centralizar — e um ancestral com transform vira CONTAINING BLOCK dos
+   filhos `position:fixed`. O véu do ::before, que devia atravessar a tela
+   inteira, passou a se medir por ESTE elemento: virou um retângulo de
+   268px pendurado atrás das cartas. O Michel viu "um desenho de quadrado
+   que extrapola a barra".
+   Centralizar com left:0/right:0 + align-items:center não cria containing
+   block, e o fixed volta a ser fixed de verdade.                        */
+.leque{
+  position:fixed;left:0;right:0;bottom:10px;z-index:60;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  pointer-events:none;
+}
+.leque::before{
+  content:"";position:fixed;left:0;right:0;bottom:0;height:210px;z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(to top,
+    var(--bg) 0%, var(--bg) 38%,
+    color-mix(in srgb,var(--bg) 82%,transparent) 62%,
+    color-mix(in srgb,var(--bg) 40%,transparent) 84%, transparent 100%);
+}
+.leque-mao{position:relative;width:268px;height:118px;pointer-events:auto}
+
+.carta-nav{
+  --pos:0;
+  --rot:calc(var(--pos) * 15deg);
+  position:absolute;left:50%;bottom:26px;z-index:1;
+  width:46px;height:66px;margin-left:-23px;
+  border:0;padding:0;background:none;cursor:pointer;
+  /* O PIVÔ COMUM: é ele que faz o leque convergir num ponto só. */
+  transform-origin:50% calc(100% + 86px);
+  transform:rotate(var(--rot));
+  transition:transform .38s cubic-bezier(.22,.68,.3,1), filter .38s ease;
+  perspective:520px;filter:brightness(.88);
+}
+.giro{
+  position:absolute;inset:0;transform-style:preserve-3d;transform:rotateY(0deg);
+  transition:transform .42s cubic-bezier(.34,.06,.24,1) .06s;
+}
+.carta-nav .lface{
+  position:absolute;inset:0;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  box-shadow:-3px 5px 12px -5px rgba(6,8,20,.9);
+}
+.carta-nav .lface .rnn{
+  font-family:var(--fonte-display);font-size:9.5px;font-weight:700;letter-spacing:.08em;
+  position:absolute;top:4px;left:0;right:0;text-align:center;
+}
+.carta-nav .lface::after{
+  content:"";position:absolute;inset:3px;border:1px solid currentColor;opacity:.3;border-radius:4px;
+}
+.carta-nav svg{width:24px;height:24px;margin-top:5px}
+.dorso{background:var(--noite);border:1px solid var(--ouro);color:var(--ouro-luz)}
+/* ⚠️ PERGAMINHO FIXO: no tema escuro a face saía igual ao verso. */
+.frente-nav{
+  transform:rotateY(180deg);
+  background:#F4EFE2;border:1px solid #B0842E;color:#7A5A1E;
+}
+.carta-nav .frente-nav .rnn{color:#232A52}
+
+.carta-nav:hover{transform:rotate(var(--rot)) translateY(-9px);filter:brightness(1)}
+.carta-nav:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:9px}
+
+.carta-nav[aria-current="true"]{
+  /* sai PRA FORA junto com o endireitar: sem o translateX, ao ficar reta a
+     carta desliza pro centro e cobre a vizinha (o I tapava o II). */
+  transform:rotate(calc(var(--rot) * .28)) translateX(calc(var(--pos) * 6px))
+            translateY(-30px) scale(1.16);
+  z-index:20;transition-delay:0s;filter:brightness(1);
+  pointer-events:none;   /* é a tela onde você já está: não rouba o clique da vizinha */
+}
+.carta-nav[aria-current="true"] .giro{transform:rotateY(180deg)}
+.carta-nav[aria-current="true"] .frente-nav{
+  box-shadow:0 10px 26px -8px rgba(6,8,20,.75),
+             0 0 0 1.5px var(--ouro), 0 0 22px -2px var(--ouro-luz);
+}
+
+.leque-sig{
+  position:absolute;left:50%;bottom:0;margin-left:-20px;z-index:25;
+  width:40px;height:40px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%;
+  transition:transform .34s cubic-bezier(.22,.68,.3,1);
+}
+.leque-sig svg{width:100%;height:100%;display:block}
+.leque-sig:hover{transform:translateY(-5px) scale(1.08)}
+.leque-sig:focus-visible{outline:2px solid var(--ouro);outline-offset:4px}
+
+.leque-nome{
+  font-family:var(--fonte-num);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ouro-txt);white-space:nowrap;height:13px;line-height:13px;opacity:.9;
+}
+
+@media (max-width:560px){
+  .leque-mao{width:236px;height:108px}
+  .carta-nav{width:41px;height:59px;margin-left:-20.5px;bottom:24px;
+    transform-origin:50% calc(100% + 76px)}
+  .carta-nav svg{width:21px;height:21px;margin-top:4px}
+  .carta-nav .lface .rnn{font-size:8px}
+  .leque-sig{width:36px;height:36px;margin-left:-18px;bottom:0}
+  .leque::before{height:180px}
+}
+@media (prefers-reduced-motion:reduce){
+  .carta-nav,.leque-sig,.giro{transition-duration:.12s;transition-delay:0s}
+}
+
+/* o leque flutua por cima: o fim da página precisa de ar embaixo, senão a
+   última linha das listas some atrás da mão de cartas */
+.main{min-width:0;display:flex;flex-direction:column;padding-bottom:196px}
 
 .topo{
   position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);
   backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
   padding:var(--e3) var(--e5);display:flex;align-items:center;gap:var(--e3);
 }
-.topo h1{font-family:var(--fonte-display);font-size:26px;font-weight:600;letter-spacing:.005em}
+/* h1 não quebra: desde que a marca subiu pro topo, "Onde vai o dinheiro"
+   passou a brigar por largura e virava duas linhas. */
+.topo h1{font-family:var(--fonte-display);font-size:26px;font-weight:600;letter-spacing:.005em;
+  white-space:nowrap;flex:0 0 auto}
 .topo .sep{flex:1}
 .selo{
   display:inline-flex;align-items:center;gap:6px;font-size:var(--t-micro);color:var(--ink3);
@@ -177,7 +300,7 @@ a{color:inherit}
   pointer-events:none;z-index:0;color:var(--ouro);opacity:.5}
 html[data-tema="escuro"] .constel{opacity:.8;color:var(--ouro-luz)}
 .heroi .rot{font-size:var(--t-micro);color:var(--ink2);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
-.heroi .val{font-size:var(--t-heroi);font-weight:600;line-height:1.02;margin:6px 0 10px}
+.heroi .val{font-family:var(--fonte-num);font-size:var(--t-heroi);font-weight:600;line-height:1.02;margin:6px 0 10px;font-variant-numeric:tabular-nums}
 .heroi .val.ruim{color:var(--crit)}
 .heroi .val.bom{color:var(--ink)}
 .heroi .porque{font-size:var(--t-corpo);color:var(--ink2);max-width:44ch}
@@ -191,7 +314,7 @@ html[data-tema="escuro"] .constel{opacity:.8;color:var(--ouro-luz)}
 .faixa.c2{grid-template-columns:repeat(2,1fr)}
 .cel{background:var(--sf);padding:var(--e4) var(--e4)}
 .cel .rot{font-size:var(--t-micro);color:var(--ink2);display:flex;align-items:center;gap:5px}
-.cel .val{font-size:var(--t-num);font-weight:600;letter-spacing:-.02em;margin-top:6px;line-height:1.1;white-space:nowrap}
+.cel .val{font-family:var(--fonte-num);font-size:var(--t-num);font-weight:600;letter-spacing:-.02em;margin-top:6px;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cel .pe{font-size:var(--t-micro);color:var(--ink3);margin-top:4px}
 .cel .val.ruim{color:var(--crit)} .cel .val.bom{color:var(--good)} .cel .val.atencao{color:var(--warn)}
 
@@ -318,6 +441,332 @@ svg.g{display:block;width:100%;overflow:visible}
 .tarocarta{max-width:430px;background:var(--sf);border:1px solid var(--line2);border-radius:14px;
   padding:26px 26px 22px;text-align:center;position:relative;
   box-shadow:inset 0 0 0 5px var(--sf), inset 0 0 0 6px var(--line), var(--sombra)}
+
+/* ══════════ A MESA DA CIGANA — a entrada do dia ══════════════════
+   Aparece UMA VEZ por dia, na primeira abertura. Depois some e o painel
+   segue sóbrio. Ritual repetido vira papel de parede: a mesa vale porque
+   é cerimônia, não porque é decoração.
+
+   ⚠️ TODA classe e TODO id daqui têm prefixo (.mesa-* / #mz*). Já quebrei
+   este painel duas vezes reusando nome que existia (renderSelo, .face) —
+   e cena inteira colidindo com o app seria o pior lugar pra descobrir. */
+.mesa-tela{
+  position:fixed;inset:0;z-index:200;background:#0B0D1E;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  overflow:hidden;opacity:0;pointer-events:none;
+  transform:scale(1.03);transform-origin:50% 62%;
+  transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.3,1);
+}
+/* ⚠️ ESTA LINHA É OBRIGATÓRIA. O atributo [hidden] esconde via
+   display:none da folha do navegador — e o display:flex acima, por ser
+   mais específico, ganhava dele. Resultado: a mesa "fechava" mas
+   continuava na tela por cima do painel, invisível só no papel. */
+.mesa-tela[hidden]{display:none}
+.mesa-tela.on{opacity:1;pointer-events:auto;transform:scale(1)}
+/* ⭐ A SAÍDA. Antes era um fade chapado e a mesa "piscava" pra fora — o
+   Michel disse que a tela inicial não se comportava como as demais. Agora
+   ela AVANÇA na direção do olho e some, como quem atravessa a cena em vez
+   de trocar de slide. Fechar é entrar, não é apagar. */
+.mesa-tela.saindo{
+  opacity:0;transform:scale(1.12);
+  transition:opacity .5s ease, transform .55s cubic-bezier(.5,0,.75,.3);
+}
+.mesa-tela.saindo{opacity:0;transition:opacity .55s ease}
+.mesa-fundo{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+.mesa-topo{
+  position:absolute;top:clamp(16px,3vh,34px);left:0;right:0;z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding-inline:20px;
+}
+.mesa-dia{font-family:var(--fonte-num);font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:#C9A24A}
+.mesa-frase{font-size:clamp(13px,1.5vw,16px);color:#C9C2AE;line-height:1.5;
+  text-align:center;max-width:min(560px,86%)}
+.mesa-frase b{color:#FFF3D6;font-weight:600}
+
+/* ⚠️⚠️ POSIÇÃO CALCULADA EM JS, NÃO EM PORCENTAGEM.
+   O SVG da mesa usa preserveAspectRatio="xMidYMax slice": ele COBRE a
+   caixa e é ancorado embaixo. Isso significa que a posição da bola na
+   tela NÃO é uma fração fixa do container — ela depende do recorte, e
+   muda com a proporção da janela.
+
+   Eu tinha posicionado o texto em top:43.5%, e os dois só coincidiam numa
+   proporção específica. Em qualquer outra o texto saía torto dentro do
+   vidro. Agora a posição vem do getScreenCTM() do próprio SVG, lida de um
+   ponto-âncora invisível no centro da esfera: onde a bola estiver
+   desenhada, o texto está.                                              */
+/* ⚠️ A largura é a da ESFERA, não do gosto: 152px é o que cabe dentro do
+   vidro sem o texto vazar pelas bordas. "em 21 dias" já estourou aqui. */
+/* ⚠️ O AVISO DE SALDO ESTIMADO. Enquanto a API do Organizze não devolver
+   saldo de conta, o painel soma os lançamentos a partir de INICIO — e essa
+   soma só fecha se INICIO estiver certo. Número que o painel não pode
+   conferir NÃO pode ser dito com a mesma cara de um que ele confere. */
+/* A falha da leitura, dita em voz alta e no topo — não escondida num selo */
+.faixa-erro{
+  margin:0 0 var(--e3);padding:12px 14px;border-radius:8px;
+  border:1px solid var(--line2);border-left:3px solid var(--crit);
+  background:var(--crit-soft);display:flex;gap:10px;align-items:flex-start;
+  font-size:13px;color:var(--ink2);line-height:1.5;
+}
+.faixa-erro b{color:var(--ink);font-weight:600}
+.faixa-erro .q{font-family:var(--fonte-num);font-size:11.5px;color:var(--ink3);display:block;margin-top:3px}
+.aviso-saldo{
+  display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:8px 10px;
+  border:1px solid var(--line2);border-left:2px solid var(--warn);border-radius:6px;
+  background:var(--warn-soft);font-size:12px;color:var(--ink2);line-height:1.45;
+}
+.aviso-saldo b{color:var(--ink);font-weight:600}
+.mesa-bola{position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none;
+  opacity:0;transition:opacity .3s ease}
+.mesa-bola.posto{opacity:1}
+.mesa-bola .k{font-family:var(--fonte-num);font-size:9px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.2em;color:#FFDFA0;display:block;
+  text-shadow:0 1px 6px rgba(6,8,20,.95),0 0 16px rgba(6,8,20,.8)}
+.mesa-bola .v{font-family:var(--fonte-num);font-size:clamp(17px,2.1vw,27px);font-weight:600;
+  line-height:1.16;letter-spacing:-.03em;color:#FFFDF6;display:block;margin-top:4px;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 8px rgba(6,8,20,.95),0 0 26px rgba(6,8,20,.85),0 0 44px rgba(10,14,40,.7)}
+
+.mesa-cartas{
+  position:relative;z-index:5;margin-inline:auto;
+  display:flex;align-items:flex-end;justify-content:center;
+  gap:clamp(3px,.8vw,11px);width:min(94%,1020px);
+  padding-bottom:clamp(74px,9vh,104px);
+}
+@keyframes mz-dar-carta{
+  from{opacity:0;
+    transform:translateY(120px) translateX(calc(var(--g) * -3px)) rotate(calc(var(--g) * 3deg)) scale(.86)}
+  to{opacity:1;
+    transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px))}
+}
+/* ⭐ A MESA SE MONTA NA FRENTE DELE. As seis cartas são DADAS uma a uma,
+   vindas de baixo, com o giro se assentando no fim — é o que transforma
+   "uma coisa única chapada" numa cena que acontece. O escalonamento é
+   curto de propósito: 90ms entre cartas, não meio segundo. */
+.mesa-tela.on .mesa-carta{animation:mz-dar-carta .62s cubic-bezier(.2,.75,.3,1) backwards}
+.mesa-tela.on .mesa-carta:nth-child(1){animation-delay:.30s}
+.mesa-tela.on .mesa-carta:nth-child(2){animation-delay:.39s}
+.mesa-tela.on .mesa-carta:nth-child(3){animation-delay:.48s}
+.mesa-tela.on .mesa-carta:nth-child(4){animation-delay:.57s}
+.mesa-tela.on .mesa-carta:nth-child(5){animation-delay:.66s}
+.mesa-tela.on .mesa-carta:nth-child(6){animation-delay:.75s}
+
+@keyframes mz-surgir{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.mesa-tela.on .mesa-topo{animation:mz-surgir .7s ease .12s backwards}
+.mesa-tela.on .mesa-bola{animation:mz-surgir .8s cubic-bezier(.2,.7,.3,1) .04s backwards}
+.mesa-tela.on .mesa-entrar{animation:mz-surgir .6s ease .92s backwards}
+
+.mesa-carta{
+  --g:0;--dy:0;
+  flex:1 1 0;min-width:0;max-width:150px;
+  background:#F4EFE2;border:1.5px solid #B0842E;border-radius:9px;
+  padding:clamp(8px,1vw,13px) clamp(5px,.7vw,9px) clamp(9px,1.1vw,14px);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  color:#232A52;position:relative;cursor:pointer;
+  transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px));
+  box-shadow:0 14px 26px -14px rgba(10,6,14,.9);
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),box-shadow .3s ease;
+}
+.mesa-carta:hover{
+  transform:rotate(calc(var(--g) * 1deg)) translateY(calc(var(--dy) * 1px - 12px)) scale(1.03);
+  box-shadow:0 20px 34px -14px rgba(10,6,14,.95),0 0 20px -6px var(--ouro);
+}
+.mesa-carta:focus-visible{outline:2px solid var(--ouro);outline-offset:4px}
+.mesa-carta::after{content:"";position:absolute;inset:4px;border:1px solid #B0842E;
+  opacity:.4;border-radius:6px;pointer-events:none}
+.mesa-carta .rn{font-family:var(--fonte-display);font-size:clamp(12px,1.15vw,16px);
+  font-weight:600;color:#8A6420;line-height:1}
+.mesa-carta .fg{color:#B0842E;margin:clamp(4px,.7vw,9px) 0 clamp(3px,.5vw,7px)}
+.mesa-carta .fg svg{width:clamp(24px,2.8vw,38px);height:clamp(24px,2.8vw,38px);display:block}
+.mesa-carta .vv{font-family:var(--fonte-num);font-size:clamp(11px,1.05vw,15px);font-weight:600;
+  color:#232A52;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.mesa-carta .lg{font-family:var(--fonte-num);font-size:clamp(7px,.62vw,9px);
+  text-transform:uppercase;letter-spacing:.1em;color:#847F76;white-space:nowrap}
+.mesa-carta .nm{font-family:var(--fonte-display);font-size:clamp(10px,.95vw,13.5px);
+  font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#5C5A64;
+  margin-top:clamp(3px,.5vw,6px);white-space:nowrap}
+
+.mesa-entrar{
+  position:absolute;bottom:clamp(20px,3.2vh,34px);left:50%;transform:translateX(-50%);
+  z-index:6;font-family:var(--fonte-num);font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:#C9A24A;background:transparent;
+  border:1px solid rgba(201,162,74,.45);border-radius:22px;padding:9px 22px;cursor:pointer;
+  transition:background .25s ease,color .25s ease,border-color .25s ease;
+}
+.mesa-entrar:hover{background:rgba(201,162,74,.14);color:#F0D48A;border-color:#C9A24A}
+.mesa-entrar:focus-visible{outline:2px solid var(--ouro);outline-offset:3px}
+
+.mesa-rever{
+  display:inline-flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;
+  font-family:var(--fonte-num);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ouro-txt);padding:4px 0;margin-bottom:2px;
+}
+.mesa-rever:hover{color:var(--ouro)}
+.mesa-rever:focus-visible{outline:2px solid var(--ouro);outline-offset:3px;border-radius:4px}
+
+@keyframes mz-tremula{0%,100%{transform:scaleY(1) scaleX(1);opacity:1}
+  25%{transform:scaleY(1.11) scaleX(.93);opacity:.93}
+  50%{transform:scaleY(.94) scaleX(1.05);opacity:1}
+  75%{transform:scaleY(1.06) scaleX(.97);opacity:.96}}
+@keyframes mz-pisca{0%,100%{opacity:.85}50%{opacity:.25}}
+@keyframes mz-pulsa{0%,100%{opacity:.5}50%{opacity:.9}}
+@keyframes mz-fumaca{0%{opacity:0;transform:translateY(0) scaleX(1)}
+  30%{opacity:.5}100%{opacity:0;transform:translateY(-38px) scaleX(2.1)}}
+.mesa-chama{transform-origin:50% 100%;animation:mz-tremula 1.6s ease-in-out infinite}
+.mesa-estrela{animation:mz-pisca 3.4s ease-in-out infinite}
+.mesa-halo{animation:mz-pulsa 5s ease-in-out infinite}
+.mesa-fumo{animation:mz-fumaca 5.5s ease-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .mesa-chama,.mesa-estrela,.mesa-halo,.mesa-fumo{animation:none}
+  .mesa-fumo{opacity:.25}
+  /* a distribuição das cartas encolhe, mas não some: é ela que diz
+     que a mesa está sendo montada agora */
+  .mesa-tela.on .mesa-carta,.mesa-tela.on .mesa-topo,
+  .mesa-tela.on .mesa-bola,.mesa-tela.on .mesa-entrar{animation-duration:.2s;animation-delay:0s}
+  .mesa-tela,.mesa-tela.saindo{transition-duration:.2s;transform:none}
+}
+@media (max-width:720px){
+  .mesa-cartas{flex-wrap:wrap;gap:8px;width:94%;padding-bottom:88px}
+  .mesa-carta{flex:0 0 calc(33.333% - 8px);max-width:none;transform:none}
+  .mesa-carta:hover{transform:translateY(-8px)}
+}
+
+/* ── O BARALHO ─────────────────────────────────────────────────
+   A abertura do painel. Seis arcanos: você toca, a carta vira, e só então
+   a tela abre. A virada não é enfeite — é o tempo que o Michel precisa pra
+   sair de "onde eu estava" e entrar em "o que vou olhar agora". */
+.slot{aspect-ratio:2/3;position:relative;perspective:1500px;perspective-origin:50% 45%}
+
+/* a sombra é elemento de verdade, não ::before — quem anima ela é JS,
+   e JS não alcança pseudo-elemento */
+.slot .sombra{
+  position:absolute;left:8%;right:8%;bottom:-12px;height:16px;z-index:0;
+  border-radius:50%;background:rgba(35,42,82,.28);filter:blur(9px);pointer-events:none;
+}
+body[data-tema="escuro"] .slot .sombra{background:rgba(0,0,0,.5)}
+
+.flip{
+  position:absolute;inset:0;z-index:1;transform-style:preserve-3d;
+  transform:rotateY(0deg);transform-origin:50% 55%;
+  cursor:pointer;border:0;padding:0;background:none;font:inherit;color:inherit;
+  display:block;width:100%;height:100%;text-align:inherit;
+}
+.slot:not(.mexendo) .flip{transition:transform .3s cubic-bezier(.2,.7,.3,1)}
+.slot:not(.mexendo) .flip:hover{transform:translateY(-6px) scale(1.02)}
+.slot.mexendo .flip{transition:none}
+
+/* ⚠️ SEM backface-visibility AS DUAS FACES APARECEM JUNTAS e a frente fica
+   espelhada. Já apaguei estas regras uma vez sem querer. Não mexer sem
+   conferir a carta virando na tela. */
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--sf);border:1px solid var(--line2);border-radius:8px;
+  padding:11px;display:flex;flex-direction:column;
+  box-shadow:0 1px 0 var(--sf2),0 12px 26px -20px rgba(35,42,82,.55);
+}
+.face::after{
+  content:"";position:absolute;inset:5px;border:1px solid var(--ouro);
+  opacity:.38;border-radius:4px;pointer-events:none;transition:opacity .25s ease;
+}
+.slot.quina .face::after{opacity:1}
+.face.verso{transform:rotateY(180deg);gap:2px}
+.flip:focus-visible{outline:2px solid var(--ouro);outline-offset:4px;border-radius:10px}
+
+.face .rn{font-family:var(--fonte-display);font-size:14px;font-weight:600;color:var(--ouro-txt);line-height:1}
+.face .fig{flex:1;display:grid;place-items:center;padding:2px;color:var(--ouro)}
+.face .nome{
+  font-family:var(--fonte-display);font-size:14px;font-weight:600;text-align:center;
+  text-transform:uppercase;letter-spacing:.09em;line-height:1.12;
+}
+.face .sig{
+  font-family:var(--fonte-num);font-size:8.5px;text-align:center;color:var(--ink3);
+  letter-spacing:.05em;margin-top:4px;line-height:1.4;
+}
+.verso .vk{
+  font-family:var(--fonte-num);font-size:8.5px;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--ouro-txt);margin-top:3px;
+}
+.verso .vv{
+  font-family:var(--fonte-num);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;
+  line-height:1.1;letter-spacing:-.03em;margin-top:2px;
+}
+.verso .vv.ruim{color:var(--crit)} .verso .vv.bom{color:var(--good)}
+.verso .vd{font-size:11px;color:var(--ink2);line-height:1.4;margin-top:5px;flex:1}
+.verso .vb{
+  font-family:var(--fonte-num);font-size:8.5px;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--ouro-txt);border-top:1px solid var(--line);padding-top:6px;
+}
+@media (prefers-reduced-motion:reduce){
+  /* ⚠️ NUNCA usar `*` aqui. A virada da carta é conteúdo, não enfeite:
+     um seletor universal zerando animação já matou ela uma vez inteira. */
+  .slot .sombra{display:none}
+}
+
+/* ── O SELO ────────────────────────────────────────────────────
+   Carimbo de cera. Fica torto de propósito: carimbo reto parece badge
+   de gamificação, e isso é a última coisa que este painel quer ser. */
+.selo-caixa{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+/* ⚠️⚠️ ISTO JÁ SE CHAMOU `.selo` — e `.selo` JÁ EXISTIA: é o chip de
+   procedência do topo ("Organizze · 26/08"). Como esta regra vem depois,
+   ela venceu, e o chip do topo passou a herdar `transform:rotate(-7deg)`.
+   O Michel viu um chip cortado na diagonal e perguntou se eu achava
+   aquilo normal. Não era corte: era o chip TORTO.
+
+   Terceira colisão de nome na mesma semana (renderSelo, .face, .selo).
+   Por isso o build.mjs agora acusa seletor duplicado antes de publicar. */
+.carimbo{flex:0 0 auto;transform:rotate(-7deg);color:var(--ouro)}
+.selo-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.selo-txt .t{font-family:var(--fonte-display);font-size:22px;font-weight:600;line-height:1.15}
+.selo-txt .s{font-size:13.5px;color:var(--ink2);line-height:1.5}
+.selo-txt .h{font-family:var(--fonte-num);font-size:11px;color:var(--ink3);letter-spacing:.04em;margin-top:4px}
+
+/* ── A TIRAGEM DO DIA ──────────────────────────────────────────
+   Três cartas na abertura: onde você está · o que se aproxima · o conselho.
+   Existe pra matar o scroll atrás do que importa. */
+.tiragem{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:12px}
+.tira{
+  background:var(--sf);border:1px solid var(--line);border-radius:10px;
+  padding:15px 16px 16px;display:flex;flex-direction:column;gap:3px;
+}
+.tira .rot{
+  font-family:var(--fonte-num);font-size:10px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.16em;color:var(--ouro-txt);
+}
+.tira .val{
+  font-family:var(--fonte-num);font-size:clamp(19px,3.2vw,25px);font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.15;margin-top:2px;
+}
+.tira .txt{font-size:13px;color:var(--ink2);line-height:1.5;margin-top:3px}
+.tira .sub{font-family:var(--fonte-num);font-size:11px;color:var(--ink3);letter-spacing:.02em;margin-top:2px}
+.tira.conselho{border-color:var(--line2);background:var(--terracota-soft)}
+.tira.conselho .val{color:var(--terracota)}
+
+/* ── O ECLIPSE ─────────────────────────────────────────────────
+   O dia em que o dinheiro acaba. Vinho, nunca vermelho de alarme:
+   a régua da casa continua valendo — susto não ensina a gastar melhor. */
+.eclipse{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:16px 18px;border:1px solid var(--line2);border-radius:10px;
+  background:var(--crit-soft);
+}
+.eclipse.azul{background:var(--good-soft)}
+.eclipse .disco{flex:0 0 auto}
+.eclipse .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eclipse .rot{
+  font-family:var(--fonte-num);font-size:10.5px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.16em;color:var(--ouro-txt);
+}
+.eclipse .val{
+  font-family:var(--fonte-num);font-size:clamp(22px,4.4vw,30px);font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;color:var(--crit);
+}
+.eclipse.azul .val{color:var(--good)}
+.eclipse .quando{font-size:13.5px;color:var(--ink2);line-height:1.5}
+.eclipse .quando b{color:var(--ink);font-weight:600}
+.eclipse .casa{
+  font-family:var(--fonte-num);font-size:11.5px;color:var(--terracota);letter-spacing:.02em;
+}
 .tarocarta .arcano{font-family:var(--fonte-display);font-style:italic;font-size:14px;color:var(--ouro-txt)}
 .tarocarta .estrela{margin:12px auto 10px;display:block;width:44px;height:44px;color:var(--ouro)}
 .tarocarta h3{font-family:var(--fonte-display);font-size:24px;font-weight:600;margin-bottom:8px}
@@ -392,6 +841,7 @@ svg.g{display:block;width:100%;overflow:visible}
 @media (max-width:1080px){
   :root{--rail:60px}
   .marca-txt,.marca-sub,.nav span,.mini-btn span{display:none}
+  .mini-btn.tema .tema-ico,.mini-btn.tema .tema-txt{display:inline}
   .nav button{justify-content:center;padding:11px 0}
   .rail-pe .linha{flex-direction:column}
   .tela{padding:var(--e4)}
@@ -399,44 +849,25 @@ svg.g{display:block;width:100%;overflow:visible}
   .faixa.c4{grid-template-columns:1fr 1fr}
 }
 @media (max-width:640px){
-  .app{grid-template-columns:1fr}
-  .rail{position:fixed;bottom:0;top:auto;left:0;right:0;height:auto;width:100%;
-    flex-direction:row;border-right:none;border-top:1px solid var(--line);padding:6px;
-    z-index:50;gap:0}
-  .marca,.rail-pe{display:none}
-  .nav{flex-direction:row;width:100%;gap:0}
-  .nav button{flex-direction:column;gap:3px;font-size:10px;padding:7px 0}
-  .nav button::after{display:none}
-  .nav span{display:block;font-size:10px}
-  .main{padding-bottom:66px}
-  .topo{padding:var(--e3) var(--e4);flex-wrap:wrap}
-  .topo h1{font-size:var(--t-corpo)}
-  .heroi{grid-template-columns:1fr;padding:var(--e4)}
-  .heroi .val{font-size:40px}
-  .medidor{display:none}
-  .faixa.c4,.faixa.c3{grid-template-columns:1fr 1fr}
-  .catlin{grid-template-columns:112px 1fr 84px;gap:var(--e2)}
-  .catlin .d{display:none}
-  .catsub{padding-left:0}
-  .cel{padding:var(--e3)}
-  .cel .val{font-size:22px}
-  .lista td:nth-child(3),.lista th:nth-child(3){display:none}
-  .bloco{margin-bottom:var(--e5)}
-  .bloco-h{flex-wrap:wrap;gap:var(--e2)}
-  .bloco-h .acoes{margin-left:0;width:100%}
-  .dia{grid-template-columns:44px 1fr}
-  .empil{height:30px}
-  .heroi .porque{font-size:var(--t-corpo)}
+  .marca-txt,.marca-sub{display:none}
+  .mini-btn span{display:none}
+  .mini-btn.tema .tema-ico,.mini-btn.tema .tema-txt{display:inline}
+  .topo{padding:var(--e3) var(--e4);flex-wrap:wrap;gap:10px}
+  .tela{padding:var(--e3) var(--e4)}
 }
-@media print{.rail,.topo .btn-sync{display:none}}
+
+@media (max-width:560px){ .main{padding-bottom:172px} }
+
+@media print{.leque,.topo .btn-sync{display:none}}
 </style>
 </head>
 <body>
 
 <div class="app">
-  <!-- ================= RAIL ================= -->
-  <aside class="rail">
-    <div class="marca">
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topo">
+      <div class="marca" id="marca">
       <svg class="marca-sig" id="marcaSig" viewBox="0 0 32 32" aria-hidden="true">
         <!-- Estrela cigana de 8 pontas — o símbolo do povo cigano na umbanda.
              Traço de gravura: ouro sobre a noite, nunca cor chapada infantil. -->
@@ -453,39 +884,6 @@ svg.g{display:block;width:100%;overflow:visible}
         <div class="marca-sub">seu contador de estrada</div>
       </div>
     </div>
-
-    <nav class="nav" id="nav">
-      <button data-tela="hoje" data-arc="I" aria-current="true">
-        <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg><span>Hoje</span>
-      </button>
-      <button data-tela="pagar" data-arc="II">
-        <svg viewBox="0 0 24 24"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg><span>A pagar</span>
-      </button>
-      <button data-tela="mes" data-arc="III">
-        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 4-7 5 4"/><path d="M3 21h18"/></svg><span>Fluxo</span>
-      </button>
-      <button data-tela="onde" data-arc="IV">
-        <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V4M16 19v-7M22 19H2"/></svg><span>Onde vai</span>
-      </button>
-      <button data-tela="comp" data-arc="V">
-        <svg viewBox="0 0 24 24"><path d="M3 8h18M3 14h18"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg><span>Comprometido</span>
-      </button>
-      <button data-tela="saude" data-arc="VI">
-        <svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span>Saúde</span>
-      </button>
-    </nav>
-
-    <div class="rail-pe">
-      <div class="linha">
-        <button class="mini-btn" id="btnTema" title="Tema">◐<span>Tema</span></button>
-        <button class="mini-btn" id="btnSair" title="Sair">⏻<span>Sair</span></button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- ================= MAIN ================= -->
-  <div class="main">
-    <header class="topo">
       <h1 id="tituloTela">Hoje</h1>
       <div class="periodo" id="periodo">
         <button id="mesAnt" title="Mês anterior">‹</button>
@@ -502,11 +900,25 @@ svg.g{display:block;width:100%;overflow:visible}
         </svg>
         Atualizar
       </button>
+      <!-- ⭐ O BOTÃO DIZ PRA ONDE VAI, NÃO O QUE ELE É. Ele existia desde
+           sempre escrito "◐ Tema" — e o Michel usou o painel semanas sem
+           descobrir que havia um tema claro. "Tema" é uma categoria; ninguém
+           clica numa categoria. "☀ Claro" é uma promessa, e promessa se
+           clica. É por isso também que o rótulo dele NÃO some no celular,
+           mesmo os outros sumindo: um ícone sozinho volta a ser categoria. -->
+      <button class="mini-btn tema" id="btnTema" title="Trocar o tema"
+              aria-label="Trocar o tema"><span class="tema-ico">☀</span><span class="tema-txt">Claro</span></button>
+      <button class="mini-btn" id="btnSair" title="Sair">⏻<span>Sair</span></button>
     </header>
 
     <!-- ---------- TELA: HOJE ---------- -->
     <section class="tela" id="tela-hoje">
       <p class="escopo" id="hEscopo"></p>
+
+      <div class="bloco">
+        <div class="tiragem" id="hTiragem"></div>
+      </div>
+
       <div class="bloco">
         <div class="heroi">
           <div>
@@ -528,6 +940,10 @@ svg.g{display:block;width:100%;overflow:visible}
             </g>
           </svg>
         </div>
+      </div>
+
+      <div class="bloco" id="hEclipseBloco" hidden>
+        <div class="eclipse" id="hEclipse"></div>
       </div>
 
       <div class="bloco">
@@ -567,6 +983,10 @@ svg.g{display:block;width:100%;overflow:visible}
           <span id="pProgTxt"></span>
           <button class="tab" id="pLimpar">desmarcar tudo</button>
         </div>
+      </div>
+
+      <div class="bloco" id="pSeloBloco" hidden>
+        <div class="selo-caixa" id="pSelo"></div>
       </div>
 
       <div id="pAviso"></div>
@@ -691,6 +1111,940 @@ svg.g{display:block;width:100%;overflow:visible}
       </div>
     </section>
   </div>
+
+  <!-- ================= O LEQUE ================= -->
+  <nav class="leque" id="nav" aria-label="Navegação">
+    <div class="leque-mao" id="lequeMao"></div>
+    <span class="leque-nome" id="lequeNome"></span>
+  </nav>
+
+</div>
+
+
+<!-- ══════════ A MESA DA CIGANA — entrada do dia ══════════ -->
+<div class="mesa-tela" id="mesaTela" role="dialog" aria-modal="true" aria-label="A mesa de hoje" hidden>
+<svg class="mesa-fundo" viewBox="0 70 1180 630" preserveAspectRatio="xMidYMax slice" role="img"
+     aria-label="A mesa da cigana montada sob a lua">
+
+  <defs>
+    <radialGradient id="mz-ceu" cx="50%" cy="14%" r="94%">
+      <stop offset="0%" stop-color="#242A55"/><stop offset="38%" stop-color="#161A3A"/>
+      <stop offset="72%" stop-color="#0D1026"/><stop offset="100%" stop-color="#070915"/>
+    </radialGradient>
+    <linearGradient id="mz-viaLactea" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3A4278" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#4A5390" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#3A4278" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- TEXTURA PROCEDURAL: é ela que tira o aspecto de vetor chapado -->
+    <filter id="mz-grao" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="4" seed="7" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="nb"/>
+      <feComponentTransfer in="nb" result="nc">
+        <feFuncA type="linear" slope=".34" intercept="0"/>
+      </feComponentTransfer>
+      <feComposite in="nc" in2="SourceAlpha" operator="in" result="ng"/>
+      <feBlend in="SourceGraphic" in2="ng" mode="multiply"/>
+    </filter>
+    <filter id="mz-graoFino" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="3" seed="3" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="nb"/>
+      <feComponentTransfer in="nb" result="nc"><feFuncA type="linear" slope=".2"/></feComponentTransfer>
+      <feComposite in="nc" in2="SourceAlpha" operator="in" result="ng"/>
+      <feBlend in="SourceGraphic" in2="ng" mode="multiply"/>
+    </filter>
+
+    <!-- ILUMINAÇÃO COMPUTADA: a luz das velas incide de verdade sobre o pano -->
+    <filter id="mz-luzDaVela" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="5" result="relevo"/>
+      <feDiffuseLighting in="relevo" surfaceScale="2.6" diffuseConstant="1" lighting-color="#FFD9A0" result="luz">
+        <fePointLight x="300" y="470" z="90"/>
+      </feDiffuseLighting>
+      <feComposite in="luz" in2="SourceAlpha" operator="in" result="luzR"/>
+      <feBlend in="SourceGraphic" in2="luzR" mode="multiply"/>
+    </filter>
+    <filter id="mz-metal" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency=".12" numOctaves="2" seed="9" result="r"/>
+      <feSpecularLighting in="r" surfaceScale="1.6" specularConstant="1" specularExponent="22"
+                          lighting-color="#FFF3D6" result="sp">
+        <fePointLight x="-40" y="-70" z="120"/>
+      </feSpecularLighting>
+      <feComposite in="sp" in2="SourceAlpha" operator="in" result="spR"/>
+      <feComposite in="SourceGraphic" in2="spR" operator="arithmetic" k1="0" k2="1" k3=".85" k4="0"/>
+    </filter>
+    <filter id="mz-borrar3"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="mz-borrar4"><feGaussianBlur stdDeviation="4.5"/></filter>
+    <filter id="mz-borrar8"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="mz-borrar16"><feGaussianBlur stdDeviation="16"/></filter>
+
+    <radialGradient id="mz-luaHalo"><stop offset="0%" stop-color="#F0D48A" stop-opacity=".34"/>
+      <stop offset="52%" stop-color="#F0D48A" stop-opacity=".07"/>
+      <stop offset="100%" stop-color="#F0D48A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-luaCorpo" cx="34%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#FFFAEA"/><stop offset="55%" stop-color="#F0E2BC"/>
+      <stop offset="100%" stop-color="#C9B896"/></radialGradient>
+    <radialGradient id="mz-luzQuente"><stop offset="0%" stop-color="#FFC97A" stop-opacity=".55"/>
+      <stop offset="45%" stop-color="#E8894A" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#7A2E22" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-fogo" cx="50%" cy="72%" r="62%">
+      <stop offset="0%" stop-color="#FFD79A" stop-opacity=".5"/>
+      <stop offset="45%" stop-color="#C4693F" stop-opacity=".2"/>
+      <stop offset="100%" stop-color="#7A2E22" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-chamaG" cx="50%" cy="72%" r="62%">
+      <stop offset="0%" stop-color="#FFFAE8"/><stop offset="34%" stop-color="#FFC964"/>
+      <stop offset="72%" stop-color="#F08A32" stop-opacity=".75"/>
+      <stop offset="100%" stop-color="#E8722C" stop-opacity="0"/></radialGradient>
+
+    <!-- CERA: claro na esquerda (chama), núcleo escuro, luz refletida na direita -->
+    <linearGradient id="mz-ceraA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFF6E2"/><stop offset="26%" stop-color="#EFE0C2"/>
+      <stop offset="62%" stop-color="#BFAA85"/><stop offset="86%" stop-color="#9E8A69"/>
+      <stop offset="100%" stop-color="#C9B48C"/></linearGradient>
+    <linearGradient id="mz-ceraB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F8DCD2"/><stop offset="28%" stop-color="#E6BFB2"/>
+      <stop offset="64%" stop-color="#B58676"/><stop offset="88%" stop-color="#95685C"/>
+      <stop offset="100%" stop-color="#BE8C7E"/></linearGradient>
+    <radialGradient id="mz-poca" cx="42%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#FFD9A0"/><stop offset="60%" stop-color="#E8C79A"/>
+      <stop offset="100%" stop-color="#B99C72"/></radialGradient>
+
+    <!-- OURO metálico de verdade: banda clara estreita entre dois escuros -->
+    <linearGradient id="mz-ouroFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7A5514"/><stop offset="22%" stop-color="#D9B45C"/>
+      <stop offset="42%" stop-color="#FFF0BE"/><stop offset="58%" stop-color="#E0BC68"/>
+      <stop offset="80%" stop-color="#8A6420"/><stop offset="100%" stop-color="#C9A24A"/></linearGradient>
+    <linearGradient id="mz-ouroCanto" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4E340B"/><stop offset="50%" stop-color="#9A7526"/>
+      <stop offset="100%" stop-color="#4E340B"/></linearGradient>
+
+    <!-- PANO: pooling de luz sob a bola, escurecendo pras bordas -->
+    <radialGradient id="mz-tampo" cx="50%" cy="30%" r="76%">
+      <stop offset="0%" stop-color="#A34248"/><stop offset="30%" stop-color="#8A3238"/>
+      <stop offset="66%" stop-color="#66242A"/><stop offset="100%" stop-color="#3A141A"/></radialGradient>
+    <linearGradient id="mz-saia" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7A2B31"/><stop offset="38%" stop-color="#5C1F26"/>
+      <stop offset="100%" stop-color="#2E0F16"/></linearGradient>
+    <!-- ⭐ A TRAMA. Dois conjuntos de fios cruzados — urdidura clara, trama
+         escura. É literalmente como tecido é feito, e é por isso que lê como
+         tecido. Ruído aleatório nunca vai ler: falta a direção. -->
+    <pattern id="mz-trama" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+      <path d="M0 1.6 h7 M0 5.1 h7" stroke="#FFD9B0" stroke-width=".9" opacity=".075"/>
+      <path d="M1.6 0 v7 M5.1 0 v7" stroke="#1C060C" stroke-width=".9" opacity=".1"/>
+      <path d="M0 3.4 h7" stroke="#1C060C" stroke-width=".5" opacity=".05"/>
+    </pattern>
+    <linearGradient id="mz-luzSaia" x1="0" y1="0" x2="1" y2="0.25">
+      <stop offset="0%" stop-color="#FFC58A" stop-opacity=".22"/>
+      <stop offset="26%" stop-color="#FFC58A" stop-opacity=".07"/>
+      <stop offset="62%" stop-color="#FFC58A" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFC58A" stop-opacity=".04"/></linearGradient>
+    <linearGradient id="mz-veludo" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#FFC58A" stop-opacity=".16"/>
+      <stop offset="46%" stop-color="#FFC58A" stop-opacity=".05"/>
+      <stop offset="100%" stop-color="#FFC58A" stop-opacity="0"/></linearGradient>
+    <pattern id="mz-bordado" width="38" height="38" patternUnits="userSpaceOnUse">
+      <path d="M19 5 L21.4 16.6 L33 19 L21.4 21.4 L19 33 L16.6 21.4 L5 19 L16.6 16.6 Z"
+            fill="none" stroke="#E0BC68" stroke-width=".6" opacity=".24"/>
+      <circle cx="19" cy="19" r="1.1" fill="#E0BC68" opacity=".2"/>
+      <circle cx="0" cy="0" r="1.4" fill="none" stroke="#E0BC68" stroke-width=".4" opacity=".16"/>
+    </pattern>
+
+    <!-- CRISTAL: vidro com refração e núcleo escuro -->
+    <radialGradient id="mz-cristal" cx="33%" cy="26%" r="82%">
+      <stop offset="0%" stop-color="#FFF6DC" stop-opacity=".62"/>
+      <stop offset="20%" stop-color="#A9BCE8" stop-opacity=".38"/>
+      <stop offset="52%" stop-color="#3B4479" stop-opacity=".78"/>
+      <stop offset="82%" stop-color="#1A1E42"/><stop offset="100%" stop-color="#0C0F26"/></radialGradient>
+    <radialGradient id="mz-brilhoBola"><stop offset="0%" stop-color="#CBD8FF" stop-opacity=".4"/>
+      <stop offset="55%" stop-color="#8EA0E0" stop-opacity=".10"/>
+      <stop offset="100%" stop-color="#8EA0E0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="mz-vinheta" cx="50%" cy="52%" r="72%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="62%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="88%" stop-color="#04060F" stop-opacity=".42"/>
+      <stop offset="100%" stop-color="#04060F" stop-opacity=".72"/></radialGradient>
+    <radialGradient id="mz-caustica"><stop offset="0%" stop-color="#DCE6FF" stop-opacity=".55"/>
+      <stop offset="60%" stop-color="#9AAEF0" stop-opacity=".14"/>
+      <stop offset="100%" stop-color="#9AAEF0" stop-opacity="0"/></radialGradient>
+
+    <!-- MADEIRA do baú -->
+    <linearGradient id="mz-madeira" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8A5A2E"/><stop offset="30%" stop-color="#6B4526"/>
+      <stop offset="70%" stop-color="#4A2E18"/><stop offset="100%" stop-color="#5E3A20"/></linearGradient>
+    <linearGradient id="mz-madeiraTampa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9C6A38"/><stop offset="45%" stop-color="#7A4E28"/>
+      <stop offset="100%" stop-color="#553318"/></linearGradient>
+    <!-- PELE do pandeiro -->
+    <radialGradient id="mz-pele" cx="38%" cy="32%" r="76%">
+      <stop offset="0%" stop-color="#FBEFD2"/><stop offset="52%" stop-color="#E3CFA4"/>
+      <stop offset="100%" stop-color="#B99C72"/></radialGradient>
+    <linearGradient id="mz-aroPand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A06A34"/><stop offset="40%" stop-color="#7A4A22"/>
+      <stop offset="100%" stop-color="#4E2C12"/></linearGradient>
+    <!-- VIDRO da lanterna -->
+    <linearGradient id="mz-vidro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE0A0" stop-opacity=".85"/>
+      <stop offset="55%" stop-color="#F0A64E" stop-opacity=".7"/>
+      <stop offset="100%" stop-color="#B8642A" stop-opacity=".55"/></linearGradient>
+  </defs>
+
+  <!-- ═══ CÉU ═══ -->
+  <rect y="70" width="1180" height="630" fill="url(#mz-ceu)"/>
+  <ellipse cx="620" cy="230" rx="620" ry="150" fill="url(#mz-viaLactea)" transform="rotate(-12 620 230)"/>
+  <g>
+      <circle cx="533.8" cy="271.5" r="2.55" fill="#FFF6E2" opacity="0.85"/>
+      <circle cx="599.3" cy="281.5" r="0.52" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="743.3" cy="355.5" r="0.5" fill="#CBD4F0" opacity="0.25"/>
+      <circle cx="107.0" cy="361.5" r="1.37" fill="#F0D48A" opacity="0.68" class="mesa-estrela" style="animation-delay:3.3s"/>
+      <circle cx="1138.4" cy="305.4" r="1.11" fill="#F0D48A" opacity="0.62" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="623.5" cy="91.4" r="0.52" fill="#CBD4F0" opacity="0.32" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="547.4" cy="228.6" r="2.05" fill="#FFF6E2" opacity="0.79"/>
+      <circle cx="755.5" cy="249.9" r="1.26" fill="#F0D48A" opacity="0.66"/>
+      <circle cx="328.2" cy="429.2" r="3.07" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="835.2" cy="183.5" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="82.9" cy="345.9" r="0.67" fill="#F0D48A" opacity="0.47"/>
+      <circle cx="456.1" cy="414.9" r="2.08" fill="#FFF6E2" opacity="0.79" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="1074.1" cy="239.2" r="2.95" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="86.2" cy="296.6" r="1.73" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="392.5" cy="417.1" r="1.63" fill="#F0D48A" opacity="0.73" class="mesa-estrela" style="animation-delay:0.8s"/>
+      <circle cx="119.2" cy="91.6" r="1.82" fill="#F0D48A" opacity="0.75" class="mesa-estrela" style="animation-delay:1.9s"/>
+      <circle cx="528.0" cy="138.6" r="1.52" fill="#F0D48A" opacity="0.71" class="mesa-estrela" style="animation-delay:2.2s"/>
+      <circle cx="137.5" cy="221.5" r="0.53" fill="#CBD4F0" opacity="0.33" class="mesa-estrela" style="animation-delay:3.3s"/>
+      <circle cx="948.0" cy="179.5" r="2.3" fill="#FFF6E2" opacity="0.82" class="mesa-estrela" style="animation-delay:1.3s"/>
+      <circle cx="1008.2" cy="301.1" r="0.5" fill="#CBD4F0" opacity="0.25"/>
+      <circle cx="251.6" cy="163.0" r="1.7" fill="#F0D48A" opacity="0.74"/>
+      <circle cx="349.7" cy="96.4" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="286.8" cy="286.5" r="0.63" fill="#CBD4F0" opacity="0.45"/>
+      <circle cx="1131.8" cy="244.1" r="0.99" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="215.7" cy="125.5" r="2.45" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="294.4" cy="138.3" r="1.55" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="232.0" cy="412.0" r="2.29" fill="#FFF6E2" opacity="0.82"/>
+      <circle cx="497.3" cy="107.4" r="0.5" fill="#CBD4F0" opacity="0.21"/>
+      <circle cx="281.3" cy="323.6" r="0.54" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="703.8" cy="175.6" r="0.51" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="81.2" cy="152.2" r="0.96" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="724.9" cy="170.9" r="2.51" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="317.6" cy="230.5" r="0.5" fill="#CBD4F0" opacity="0.22" class="mesa-estrela" style="animation-delay:1.3s"/>
+      <circle cx="675.2" cy="117.4" r="0.62" fill="#CBD4F0" opacity="0.44"/>
+      <circle cx="1157.0" cy="306.5" r="1.36" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="165.6" cy="82.6" r="0.5" fill="#CBD4F0" opacity="0.19"/>
+      <circle cx="827.1" cy="416.6" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="569.0" cy="333.0" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="88.8" cy="266.6" r="1.54" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="869.8" cy="323.3" r="1.8" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="415.2" cy="316.7" r="2.4" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="492.2" cy="354.6" r="2.17" fill="#FFF6E2" opacity="0.8"/>
+      <circle cx="737.5" cy="207.6" r="1.01" fill="#F0D48A" opacity="0.6"/>
+      <circle cx="94.6" cy="300.2" r="3.05" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="859.3" cy="209.8" r="1.53" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="519.8" cy="371.8" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="35.2" cy="286.5" r="0.79" fill="#F0D48A" opacity="0.53" class="mesa-estrela" style="animation-delay:2.4s"/>
+      <circle cx="586.8" cy="291.2" r="2.53" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:0.0s"/>
+      <circle cx="355.2" cy="314.1" r="0.52" fill="#CBD4F0" opacity="0.33" class="mesa-estrela" style="animation-delay:3.1s"/>
+      <circle cx="778.8" cy="229.1" r="2.34" fill="#FFF6E2" opacity="0.82"/>
+      <circle cx="785.8" cy="141.5" r="0.71" fill="#F0D48A" opacity="0.49"/>
+      <circle cx="1078.8" cy="386.9" r="0.65" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="373.5" cy="119.0" r="0.82" fill="#F0D48A" opacity="0.54"/>
+      <circle cx="1001.5" cy="326.0" r="2.73" fill="#FFF6E2" opacity="0.86" class="mesa-estrela" style="animation-delay:0.6s"/>
+      <circle cx="531.8" cy="169.1" r="0.53" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="738.4" cy="247.8" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="1158.8" cy="232.9" r="0.5" fill="#CBD4F0" opacity="0.23" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="49.0" cy="325.1" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="934.0" cy="76.9" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="29.2" cy="368.7" r="0.53" fill="#CBD4F0" opacity="0.35" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="742.4" cy="230.7" r="1.15" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="952.7" cy="415.0" r="1.33" fill="#F0D48A" opacity="0.67" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="210.8" cy="73.9" r="0.77" fill="#F0D48A" opacity="0.52"/>
+      <circle cx="211.3" cy="168.0" r="0.61" fill="#CBD4F0" opacity="0.43"/>
+      <circle cx="614.1" cy="291.2" r="1.62" fill="#F0D48A" opacity="0.72"/>
+      <circle cx="934.5" cy="396.2" r="0.5" fill="#CBD4F0" opacity="0.24"/>
+      <circle cx="852.4" cy="116.8" r="0.74" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="1073.8" cy="205.6" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="940.2" cy="409.9" r="0.76" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="241.8" cy="329.9" r="1.92" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="846.8" cy="146.8" r="2.4" fill="#FFF6E2" opacity="0.83"/>
+      <circle cx="1153.3" cy="263.3" r="1.79" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="1073.8" cy="378.1" r="0.61" fill="#CBD4F0" opacity="0.43" class="mesa-estrela" style="animation-delay:1.5s"/>
+      <circle cx="649.4" cy="346.6" r="0.8" fill="#F0D48A" opacity="0.53" class="mesa-estrela" style="animation-delay:2.8s"/>
+      <circle cx="75.6" cy="357.9" r="0.51" fill="#CBD4F0" opacity="0.3"/>
+      <circle cx="929.7" cy="120.6" r="0.51" fill="#CBD4F0" opacity="0.29"/>
+      <circle cx="853.8" cy="372.4" r="1.35" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="581.2" cy="411.7" r="0.5" fill="#CBD4F0" opacity="0.24" class="mesa-estrela" style="animation-delay:1.8s"/>
+      <circle cx="342.4" cy="332.4" r="1.18" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="995.5" cy="271.6" r="0.58" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="997.4" cy="394.2" r="0.52" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="1142.8" cy="258.7" r="0.99" fill="#F0D48A" opacity="0.59" class="mesa-estrela" style="animation-delay:1.8s"/>
+      <circle cx="593.7" cy="287.9" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="608.9" cy="214.2" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="579.4" cy="318.8" r="0.5" fill="#CBD4F0" opacity="0.23"/>
+      <circle cx="488.3" cy="414.5" r="2.55" fill="#FFF6E2" opacity="0.84" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="149.8" cy="226.1" r="1.91" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="562.3" cy="184.2" r="0.52" fill="#CBD4F0" opacity="0.32"/>
+      <circle cx="1091.8" cy="116.6" r="1.73" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="268.2" cy="317.3" r="0.59" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="731.3" cy="107.8" r="1.52" fill="#F0D48A" opacity="0.71" class="mesa-estrela" style="animation-delay:1.7s"/>
+      <circle cx="295.7" cy="141.2" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="443.4" cy="218.8" r="0.89" fill="#F0D48A" opacity="0.56" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="745.0" cy="299.8" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="721.8" cy="378.4" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="956.4" cy="395.0" r="0.58" fill="#CBD4F0" opacity="0.41"/>
+      <circle cx="1088.9" cy="148.5" r="3.09" fill="#FFF6E2" opacity="0.9"/>
+      <circle cx="158.0" cy="156.2" r="1.5" fill="#F0D48A" opacity="0.7" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="982.0" cy="221.8" r="1.78" fill="#F0D48A" opacity="0.75" class="mesa-estrela" style="animation-delay:1.4s"/>
+      <circle cx="808.6" cy="76.4" r="0.52" fill="#CBD4F0" opacity="0.32"/>
+      <circle cx="1075.4" cy="418.6" r="0.5" fill="#CBD4F0" opacity="0.26"/>
+      <circle cx="894.6" cy="251.0" r="1.34" fill="#F0D48A" opacity="0.67" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="125.3" cy="83.5" r="0.94" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="671.1" cy="122.8" r="0.52" fill="#CBD4F0" opacity="0.31" class="mesa-estrela" style="animation-delay:2.9s"/>
+      <circle cx="1168.6" cy="403.7" r="0.5" fill="#CBD4F0" opacity="0.25" class="mesa-estrela" style="animation-delay:3.2s"/>
+      <circle cx="545.2" cy="345.3" r="0.59" fill="#CBD4F0" opacity="0.42"/>
+      <circle cx="608.0" cy="224.8" r="1.06" fill="#F0D48A" opacity="0.61" class="mesa-estrela" style="animation-delay:2.4s"/>
+      <circle cx="996.2" cy="135.3" r="0.74" fill="#F0D48A" opacity="0.51"/>
+      <circle cx="478.3" cy="140.2" r="0.51" fill="#CBD4F0" opacity="0.3"/>
+      <circle cx="18.2" cy="391.5" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="1015.7" cy="296.6" r="0.67" fill="#F0D48A" opacity="0.47"/>
+      <circle cx="595.1" cy="423.8" r="1.86" fill="#FFF6E2" opacity="0.76" class="mesa-estrela" style="animation-delay:3.1s"/>
+      <circle cx="878.4" cy="350.1" r="1.91" fill="#FFF6E2" opacity="0.77"/>
+      <circle cx="1057.9" cy="386.7" r="1.37" fill="#F0D48A" opacity="0.68"/>
+      <circle cx="903.0" cy="216.1" r="1.48" fill="#F0D48A" opacity="0.7" class="mesa-estrela" style="animation-delay:1.2s"/>
+      <circle cx="553.2" cy="73.8" r="0.62" fill="#CBD4F0" opacity="0.44"/>
+      <circle cx="736.3" cy="153.6" r="2.69" fill="#FFF6E2" opacity="0.86"/>
+      <circle cx="398.6" cy="307.5" r="0.98" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="459.7" cy="430.0" r="1.19" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="898.9" cy="422.8" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="871.8" cy="162.4" r="0.67" fill="#F0D48A" opacity="0.47" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="443.3" cy="105.4" r="0.54" fill="#CBD4F0" opacity="0.36"/>
+      <circle cx="649.1" cy="252.8" r="2.85" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="1174.2" cy="299.7" r="1.88" fill="#FFF6E2" opacity="0.76" class="mesa-estrela" style="animation-delay:2.0s"/>
+      <circle cx="895.9" cy="86.2" r="2.59" fill="#FFF6E2" opacity="0.85" class="mesa-estrela" style="animation-delay:1.6s"/>
+      <circle cx="199.6" cy="248.4" r="1.09" fill="#F0D48A" opacity="0.62" class="mesa-estrela" style="animation-delay:3.2s"/>
+      <circle cx="496.4" cy="259.6" r="1.06" fill="#F0D48A" opacity="0.61"/>
+      <circle cx="337.2" cy="305.8" r="0.96" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="845.6" cy="176.6" r="0.5" fill="#CBD4F0" opacity="0.19" class="mesa-estrela" style="animation-delay:0.1s"/>
+      <circle cx="184.8" cy="341.7" r="0.65" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="883.1" cy="88.1" r="3.01" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="86.7" cy="396.0" r="0.71" fill="#F0D48A" opacity="0.49"/>
+      <circle cx="1148.3" cy="157.7" r="0.87" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="852.8" cy="238.6" r="2.94" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="712.3" cy="111.4" r="1.13" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="240.3" cy="88.7" r="0.88" fill="#F0D48A" opacity="0.56" class="mesa-estrela" style="animation-delay:1.5s"/>
+      <circle cx="788.1" cy="234.0" r="0.55" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="495.0" cy="350.1" r="0.89" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="1124.1" cy="334.3" r="0.54" fill="#CBD4F0" opacity="0.35" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="925.5" cy="295.0" r="0.62" fill="#CBD4F0" opacity="0.44" class="mesa-estrela" style="animation-delay:2.3s"/>
+      <circle cx="666.6" cy="283.0" r="1.16" fill="#F0D48A" opacity="0.64"/>
+      <circle cx="224.0" cy="159.6" r="2.95" fill="#FFF6E2" opacity="0.89"/>
+      <circle cx="1037.0" cy="84.2" r="0.5" fill="#CBD4F0" opacity="0.22" class="mesa-estrela" style="animation-delay:1.4s"/>
+      <circle cx="735.6" cy="106.9" r="0.91" fill="#F0D48A" opacity="0.57" class="mesa-estrela" style="animation-delay:0.3s"/>
+      <circle cx="798.0" cy="268.2" r="1.15" fill="#F0D48A" opacity="0.63"/>
+      <circle cx="564.7" cy="145.8" r="0.61" fill="#CBD4F0" opacity="0.43"/>
+      <circle cx="989.5" cy="96.8" r="0.5" fill="#CBD4F0" opacity="0.27"/>
+      <circle cx="736.0" cy="346.8" r="0.53" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="304.5" cy="361.6" r="0.63" fill="#CBD4F0" opacity="0.45"/>
+      <circle cx="1167.2" cy="187.1" r="0.93" fill="#F0D48A" opacity="0.58"/>
+      <circle cx="1086.6" cy="224.0" r="0.63" fill="#CBD4F0" opacity="0.45" class="mesa-estrela" style="animation-delay:3.0s"/>
+      <circle cx="92.6" cy="99.9" r="0.97" fill="#F0D48A" opacity="0.59"/>
+      <circle cx="808.7" cy="177.6" r="1.71" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.7s"/>
+      <circle cx="781.3" cy="99.4" r="0.57" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="818.9" cy="171.8" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="856.7" cy="201.9" r="0.5" fill="#CBD4F0" opacity="0.26"/>
+      <circle cx="671.7" cy="400.7" r="2.66" fill="#FFF6E2" opacity="0.86"/>
+      <circle cx="516.8" cy="359.1" r="0.57" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="471.5" cy="406.5" r="2.36" fill="#FFF6E2" opacity="0.82" class="mesa-estrela" style="animation-delay:1.2s"/>
+      <circle cx="431.4" cy="200.8" r="0.66" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="230.1" cy="273.0" r="1.82" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="986.9" cy="272.6" r="0.51" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="1039.5" cy="171.3" r="0.5" fill="#CBD4F0" opacity="0.2"/>
+      <circle cx="642.1" cy="274.3" r="2.85" fill="#FFF6E2" opacity="0.88"/>
+      <circle cx="949.1" cy="93.1" r="0.93" fill="#F0D48A" opacity="0.57"/>
+      <circle cx="99.2" cy="99.4" r="1.54" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="99.9" cy="298.3" r="0.51" fill="#CBD4F0" opacity="0.28"/>
+      <circle cx="765.8" cy="158.4" r="0.53" fill="#CBD4F0" opacity="0.34"/>
+      <circle cx="615.4" cy="345.3" r="0.66" fill="#CBD4F0" opacity="0.46"/>
+      <circle cx="1142.6" cy="312.1" r="0.81" fill="#F0D48A" opacity="0.54"/>
+      <circle cx="850.7" cy="324.9" r="2.49" fill="#FFF6E2" opacity="0.84"/>
+      <circle cx="975.0" cy="310.0" r="2.12" fill="#FFF6E2" opacity="0.79"/>
+      <circle cx="983.9" cy="389.9" r="2.78" fill="#FFF6E2" opacity="0.87"/>
+      <circle cx="618.2" cy="325.6" r="1.84" fill="#FFF6E2" opacity="0.76"/>
+      <circle cx="496.1" cy="122.6" r="1.56" fill="#F0D48A" opacity="0.71"/>
+      <circle cx="443.1" cy="130.4" r="0.52" fill="#CBD4F0" opacity="0.33"/>
+      <circle cx="344.6" cy="419.1" r="0.5" fill="#CBD4F0" opacity="0.22"/>
+      <circle cx="135.5" cy="303.3" r="1.71" fill="#F0D48A" opacity="0.74" class="mesa-estrela" style="animation-delay:0.2s"/>
+      <circle cx="541.3" cy="280.3" r="2.45" fill="#FFF6E2" opacity="0.83" class="mesa-estrela" style="animation-delay:0.4s"/>
+      <circle cx="217.8" cy="148.3" r="0.53" fill="#CBD4F0" opacity="0.35"/>
+      <circle cx="701.8" cy="150.6" r="0.52" fill="#CBD4F0" opacity="0.31"/>
+      <circle cx="203.6" cy="342.7" r="0.58" fill="#CBD4F0" opacity="0.4"/>
+      <circle cx="964.2" cy="242.6" r="0.55" fill="#CBD4F0" opacity="0.37"/>
+      <circle cx="1078.8" cy="193.1" r="0.93" fill="#F0D48A" opacity="0.57"/>
+      <circle cx="569.5" cy="149.6" r="0.5" fill="#CBD4F0" opacity="0.22"/>
+      <circle cx="945.7" cy="208.6" r="0.88" fill="#F0D48A" opacity="0.56"/>
+      <circle cx="324.0" cy="426.5" r="1.24" fill="#F0D48A" opacity="0.65" class="mesa-estrela" style="animation-delay:0.0s"/>
+      <circle cx="557.7" cy="203.8" r="1.82" fill="#F0D48A" opacity="0.75"/>
+      <circle cx="715.2" cy="126.6" r="0.51" fill="#CBD4F0" opacity="0.29"/>
+      <circle cx="306.1" cy="382.9" r="0.86" fill="#F0D48A" opacity="0.55"/>
+      <g opacity=".85"><circle cx="228" cy="142" r="2.4" fill="#FFF6E2"/>
+    <path d="M228 128 Q229.54 139.9 242 142 Q229.54 144.1 228 156
+             Q226.46 144.1 214 142 Q226.46 139.9 228 128 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="742" cy="118" r="3.1" fill="#FFF6E2"/>
+    <path d="M742 100 Q743.98 115.3 760 118 Q743.98 120.7 742 136
+             Q740.02 120.7 724 118 Q740.02 115.3 742 100 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="1064" cy="318" r="2.0" fill="#FFF6E2"/>
+    <path d="M1064 306 Q1065.32 316.2 1076 318 Q1065.32 319.8 1064 330
+             Q1062.68 319.8 1052 318 Q1062.68 316.2 1064 306 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="430" cy="96" r="1.9" fill="#FFF6E2"/>
+    <path d="M430 85.0 Q431.21 94.35 441.0 96 Q431.21 97.65 430 107.0
+             Q428.79 97.65 419.0 96 Q428.79 94.35 430 85.0 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="880" cy="240" r="2.2" fill="#FFF6E2"/>
+    <path d="M880 227.0 Q881.43 238.05 893.0 240 Q881.43 241.95 880 253.0
+             Q878.57 241.95 867.0 240 Q878.57 238.05 880 227.0 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+      <g opacity=".85"><circle cx="120" cy="300" r="1.7" fill="#FFF6E2"/>
+    <path d="M120 290 Q121.1 298.5 130 300 Q121.1 301.5 120 310
+             Q118.9 301.5 110 300 Q118.9 298.5 120 290 Z"
+          fill="#FFF6E2" opacity=".55"/></g>
+  </g>
+
+  <!-- ═══ A LUA — com crateras e sombreado, não um recorte ═══ -->
+  <g transform="translate(934,170)" id="mzLua">
+    <circle r="128" fill="url(#mz-luaHalo)" class="mesa-halo"/>
+    <circle r="50" fill="url(#mz-luaCorpo)"/>
+    <g opacity=".28" fill="#8E7E62">
+      <ellipse cx="-20" cy="-14" rx="9" ry="7.4" transform="rotate(-18 -20 -14)"/>
+      <ellipse cx="-8" cy="12" rx="6.2" ry="5.2"/>
+      <ellipse cx="-28" cy="16" rx="4" ry="3.4"/>
+      <ellipse cx="-14" cy="-30" rx="3.4" ry="2.8"/>
+      <ellipse cx="-33" cy="-2" rx="2.6" ry="2.2"/>
+    </g>
+    <circle r="50" fill="none" stroke="#FFF6E2" stroke-width="1" opacity=".5"/>
+    <!-- a sombra que faz a foice: com borda macia, não recorte duro -->
+    <circle cx="19" cy="-10" r="45" fill="#161A3A" id="mzLuaSombra"/>
+    <circle cx="19" cy="-10" r="45" fill="#161A3A" filter="url(#mz-borrar3)" id="mzLuaSombra2"/>
+  </g>
+
+  <!-- ═══ MORROS: três planos, cada um mais claro que o de trás ═══ -->
+  <path d="M0 384 L104 340 L200 366 L300 322 L392 360 L486 330 L580 368 L672 338 L768 374 L866 336 L968 370 L1076 338 L1180 376 L1180 700 L0 700 Z"
+        fill="#131737"/>
+  <path d="M0 412 L88 380 L192 404 L288 372 L400 402 L500 376 L604 406 L712 378 L820 408 L930 380 L1040 406 L1180 384 L1180 700 L0 700 Z"
+        fill="#0D1028"/>
+  <path d="M0 448 L120 424 L240 446 L360 420 L480 448 L620 422 L760 450 L900 424 L1040 448 L1180 426 L1180 700 L0 700 Z"
+        fill="#080A1C"/>
+
+  <!-- brilho da fogueira fora de quadro -->
+  <ellipse cx="90" cy="580" rx="330" ry="210" fill="url(#mz-fogo)"/>
+
+  <!-- ═══ A MESA ═══
+       ⚠️ ANTES ISTO ERA UM DISCO COM RUÍDO POR CIMA e o Michel disse, com
+       razão, que parecia tudo menos tecido. Ruído de feTurbulence é
+       ISOTRÓPICO — dá aspecto de ferrugem, não de pano. Tecido é
+       DIRECIONAL: trama cruzada, vinco que nasce no centro e abre pra fora,
+       barra que ondula em vez de fechar em elipse perfeita. É isso que
+       está aqui agora, e nenhum pedaço vem de filtro de ruído. -->
+  <g>
+    <!-- a saia que cai da mesa: nasce na aba dianteira do tampo -->
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-saia)"/>
+    <g>
+      <path d="M206 479 q-10 108 -30 222" stroke="#1A050B" stroke-width="22" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M217 483 q-10 106 -30 218" stroke="#D06A76" stroke-width="6" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M219 497 q3 108 9 222" stroke="#1A050B" stroke-width="35" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M236 501 q3 106 9 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M244 514 q12 108 35 222" stroke="#1A050B" stroke-width="13" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M251 518 q12 106 35 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M282 529 q17 108 49 222" stroke="#1A050B" stroke-width="14" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M289 533 q17 106 49 218" stroke="#D06A76" stroke-width="4" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M330 542 q19 108 53 222" stroke="#1A050B" stroke-width="36" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M348 546 q19 106 53 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M387 553 q17 108 48 222" stroke="#1A050B" stroke-width="21" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M397 557 q17 106 48 218" stroke="#D06A76" stroke-width="5" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M451 561 q13 108 36 222" stroke="#1A050B" stroke-width="9" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M455 565 q13 106 36 218" stroke="#D06A76" stroke-width="2" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M519 566 q7 108 19 222" stroke="#1A050B" stroke-width="31" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M535 570 q7 106 19 218" stroke="#D06A76" stroke-width="8" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M590 568 q0 108 0 222" stroke="#1A050B" stroke-width="29" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M604 572 q0 106 0 218" stroke="#D06A76" stroke-width="7" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M661 566 q-7 108 -19 222" stroke="#1A050B" stroke-width="8" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M665 570 q-7 106 -19 218" stroke="#D06A76" stroke-width="2" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M729 561 q-13 108 -36 222" stroke="#1A050B" stroke-width="24" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M741 565 q-13 106 -36 218" stroke="#D06A76" stroke-width="6" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M793 553 q-17 108 -48 222" stroke="#1A050B" stroke-width="34" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M810 557 q-17 106 -48 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M850 542 q-19 108 -53 222" stroke="#1A050B" stroke-width="12" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M856 546 q-19 106 -53 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M898 529 q-17 108 -49 222" stroke="#1A050B" stroke-width="16" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M906 533 q-17 106 -49 218" stroke="#D06A76" stroke-width="4" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M936 514 q-12 108 -35 222" stroke="#1A050B" stroke-width="36" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M953 518 q-12 106 -35 218" stroke="#D06A76" stroke-width="9" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M961 497 q-3 108 -9 222" stroke="#1A050B" stroke-width="19" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M971 501 q-3 106 -9 218" stroke="#D06A76" stroke-width="5" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+      <path d="M974 479 q10 108 30 222" stroke="#1A050B" stroke-width="10" fill="none" opacity=".3" filter="url(#mz-borrar8)"/>
+      <path d="M979 483 q10 106 30 218" stroke="#D06A76" stroke-width="3" fill="none" opacity=".14" filter="url(#mz-borrar8)"/>
+    </g>
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-trama)" opacity=".85"/>
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-bordado)" opacity=".8"/>
+    <!-- a luz da vela lambe a saia do lado esquerdo -->
+    <path d="M204 470 a386 98 0 0 0 772 0 L1038 695 L1019 697 L1001 699 L982 700 L963 700 L945 699 L926 695 L907 691 L889 685 L870 681 L851 678 L833 677 L814 678 L795 681 L777 685 L758 688 L739 690 L721 691 L702 691 L683 692 L665 693 L646 695 L627 698 L609 701 L590 702 L571 702 L553 699 L534 695 L515 690 L497 684 L478 681 L459 679 L441 679 L422 680 L403 683 L385 685 L366 687 L347 687 L329 688 L310 688 L291 690 L273 693 L254 696 L235 700 L217 702 L198 703 L179 702 L161 699 L142 694 Z" fill="url(#mz-luzSaia)"/>
+
+    <!-- espessura do tampo, aparecendo por baixo do pano -->
+    <path d="M204 470 a386 98 0 0 0 772 0 v11 a386 98 0 0 1 -772 0 z" fill="#2E0C14"/>
+
+    <!-- o tampo: borda ondulada, não elipse de compasso -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-tampo)"/>
+    <!-- vincos radiais -->
+    <g filter="url(#mz-borrar8)">
+      <path d="M674.0 473.2 L671.3 476.3 L966.8 499.0 L979.3 484.9 Z" fill="#25080F" opacity=".16"/>
+      <path d="M665.9 479.7 L662.0 481.4 L923.9 523.0 L942.1 514.7 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M650.5 485.1 L641.3 487.2 L827.6 549.7 L870.4 540.2 Z" fill="#25080F" opacity=".16"/>
+      <path d="M629.1 489.1 L621.8 490.0 L737.5 562.7 L771.2 558.7 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M603.9 491.3 L591.7 491.6 L597.7 569.9 L654.3 568.6 Z" fill="#25080F" opacity=".16"/>
+      <path d="M577.3 491.3 L569.5 490.9 L494.8 567.0 L531.2 568.8 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M552.0 489.3 L541.4 487.7 L364.9 552.0 L413.7 559.4 Z" fill="#25080F" opacity=".16"/>
+      <path d="M530.4 485.4 L525.0 483.9 L288.4 534.3 L313.6 541.2 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M514.6 479.9 L509.8 477.1 L218.0 502.8 L240.5 516.0 Z" fill="#25080F" opacity=".16"/>
+      <path d="M506.2 473.5 L505.3 471.5 L197.2 477.0 L201.6 486.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M506.0 466.8 L508.7 463.7 L213.2 441.0 L200.7 455.1 Z" fill="#25080F" opacity=".16"/>
+      <path d="M514.1 460.3 L518.0 458.6 L256.1 417.0 L237.9 425.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M529.5 454.9 L538.7 452.8 L352.4 390.3 L309.6 399.8 Z" fill="#25080F" opacity=".16"/>
+      <path d="M550.9 450.9 L558.2 450.0 L442.5 377.3 L408.8 381.3 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M576.1 448.7 L588.3 448.4 L582.3 370.1 L525.7 371.4 Z" fill="#25080F" opacity=".16"/>
+      <path d="M602.7 448.7 L610.5 449.1 L685.2 373.0 L648.8 371.2 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M628.0 450.7 L638.6 452.3 L815.1 388.0 L766.3 380.6 Z" fill="#25080F" opacity=".16"/>
+      <path d="M649.6 454.6 L655.0 456.1 L891.6 405.7 L866.4 398.8 Z" fill="#FFD9A8" opacity=".085"/>
+      <path d="M665.4 460.1 L670.2 462.9 L962.0 437.2 L939.5 424.0 Z" fill="#25080F" opacity=".16"/>
+      <path d="M673.8 466.5 L674.7 468.5 L982.8 463.0 L978.4 453.7 Z" fill="#FFD9A8" opacity=".085"/>
+    </g>
+    <!-- a trama: fio de urdidura e fio de trama, cruzados -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-trama)" opacity=".95"/>
+    <!-- o bordado -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="url(#mz-bordado)"/>
+    <!-- veludo: a luz varre a superfície e apaga no fundo -->
+    <ellipse cx="560" cy="452" rx="300" ry="72" fill="url(#mz-veludo)"/>
+    <!-- debrum de ouro seguindo a onda -->
+    <path d="M983.2 470.0 L983.4 478.7 L975.8 487.3 L963.2 495.4 L950.9 503.4 L940.4 511.5 L927.8 519.5 L908.8 526.7 L883.9 532.6 L857.5 537.9 L832.3 543.3 L807.5 548.9 L781.0 554.0 L752.4 558.4 L722.7 562.6 L691.8 566.5 L659.0 569.3 L624.5 570.1 L590.0 568.7 L556.7 566.7 L523.8 565.3 L490.6 564.2 L457.8 562.2 L427.4 558.5 L399.4 553.8 L372.3 549.0 L345.0 544.1 L318.9 538.8 L295.2 532.8 L273.2 526.3 L251.1 519.7 L230.4 512.6 L216.0 504.6 L210.9 495.8 L212.0 486.9 L213.1 478.4 L211.2 470.0 L209.3 461.5 L212.1 453.1 L220.1 444.8 L230.5 436.8 L241.6 428.8 L255.1 420.9 L273.0 413.6 L294.0 406.9 L315.4 400.3 L337.3 393.5 L362.3 387.4 L392.7 383.2 L426.6 381.0 L460.5 379.7 L492.7 377.8 L524.3 375.5 L556.8 373.5 L590.0 372.7 L623.5 372.8 L657.3 373.2 L691.1 374.2 L723.7 376.8 L754.0 380.7 L783.1 385.1 L812.7 389.3 L842.4 393.6 L868.6 399.3 L888.0 406.5 L902.2 414.5 L915.6 422.3 L930.9 429.6 L946.5 437.1 L959.2 444.9 L968.9 453.0 L977.1 461.4 L983.2 470.0 Z" fill="none" stroke="#E0BC68" stroke-width="1.6" opacity=".55"/>
+    <path d="M922.2 470.0 L922.4 477.2 L916.0 484.2 L905.4 490.8 L895.0 497.3 L886.1 504.0 L875.4 510.6 L859.4 516.5 L838.4 521.3 L816.0 525.7 L794.7 530.1 L773.8 534.7 L751.4 538.9 L727.3 542.5 L702.1 545.9 L676.0 549.1 L648.3 551.5 L619.1 552.1 L590.0 551.0 L561.8 549.3 L534.1 548.2 L506.0 547.3 L478.3 545.6 L452.6 542.6 L429.0 538.7 L406.0 534.7 L383.0 530.8 L360.9 526.4 L340.9 521.5 L322.3 516.2 L303.6 510.7 L286.2 504.9 L274.0 498.3 L269.7 491.1 L270.6 483.9 L271.5 476.9 L269.9 470.0 L268.3 463.1 L270.7 456.1 L277.4 449.4 L286.2 442.8 L295.6 436.2 L307.0 429.8 L322.1 423.8 L339.9 418.3 L358.0 412.8 L376.4 407.3 L397.6 402.3 L423.2 398.8 L451.9 397.0 L480.6 395.9 L507.8 394.4 L534.5 392.5 L561.9 390.9 L590.0 390.3 L618.3 390.3 L646.8 390.6 L675.4 391.5 L703.0 393.5 L728.6 396.8 L753.1 400.4 L778.2 403.8 L803.3 407.4 L825.4 412.0 L841.8 417.9 L853.8 424.5 L865.1 430.9 L878.1 436.9 L891.2 443.0 L902.0 449.4 L910.2 456.1 L917.1 462.9 L922.2 470.0 Z" fill="none" stroke="#E0BC68" stroke-width=".8"
+          stroke-dasharray="6 9" opacity=".26"/>
+    <!-- fio de luz na quina onde a vela bate -->
+    <path d="M212 476 a386 98 0 0 0 206 90" fill="none" stroke="#FFC97A" stroke-width="2.6"
+          opacity=".26" filter="url(#mz-borrar3)"/>
+    <!-- cáustica da bola -->
+    <ellipse cx="590" cy="452" rx="128" ry="38" fill="url(#mz-caustica)"/>
+  </g>
+
+  <!-- franja: fio a fio, altura e curvatura irregulares -->
+  <g stroke="#E0BC68" stroke-width="1.3" opacity=".5" stroke-linecap="round" fill="none">
+    <path d="M144 694 q-1.5 7 -0.8 12"/><path d="M153 696 q-0.8 10 -0.4 18"/><path d="M163 699 q0.0 14 0.0 25"/><path d="M172 701 q0.8 8 0.4 15"/><path d="M182 702 q1.5 12 0.8 22"/><path d="M191 703 q-1.5 7 -0.8 12"/><path d="M200 703 q-0.8 10 -0.4 18"/><path d="M210 703 q0.0 14 0.0 25"/><path d="M219 702 q0.8 8 0.4 15"/><path d="M229 701 q1.5 12 0.8 22"/><path d="M238 700 q-1.5 7 -0.8 12"/><path d="M247 698 q-0.8 10 -0.4 18"/><path d="M257 696 q0.0 14 0.0 25"/><path d="M266 694 q0.8 8 0.4 15"/><path d="M275 692 q1.5 12 0.8 22"/><path d="M285 691 q-1.5 7 -0.8 12"/><path d="M294 690 q-0.8 10 -0.4 18"/><path d="M304 689 q0.0 14 0.0 25"/><path d="M313 688 q0.8 8 0.4 15"/><path d="M322 688 q1.5 12 0.8 22"/><path d="M332 688 q-1.5 7 -0.8 12"/><path d="M341 687 q-0.8 10 -0.4 18"/><path d="M351 687 q0.0 14 0.0 25"/><path d="M360 687 q0.8 8 0.4 15"/><path d="M369 686 q1.5 12 0.8 22"/><path d="M379 686 q-1.5 7 -0.8 12"/><path d="M388 685 q-0.8 10 -0.4 18"/><path d="M398 684 q0.0 14 0.0 25"/><path d="M407 682 q0.8 8 0.4 15"/><path d="M416 681 q1.5 12 0.8 22"/><path d="M426 680 q-1.5 7 -0.8 12"/><path d="M435 679 q-0.8 10 -0.4 18"/><path d="M444 679 q0.0 14 0.0 25"/><path d="M454 679 q0.8 8 0.4 15"/><path d="M463 679 q1.5 12 0.8 22"/><path d="M473 680 q-1.5 7 -0.8 12"/><path d="M482 681 q-0.8 10 -0.4 18"/><path d="M491 683 q0.0 14 0.0 25"/><path d="M501 685 q0.8 8 0.4 15"/><path d="M510 688 q1.5 12 0.8 22"/><path d="M520 691 q-1.5 7 -0.8 12"/><path d="M529 693 q-0.8 10 -0.4 18"/><path d="M538 696 q0.0 14 0.0 25"/><path d="M548 698 q0.8 8 0.4 15"/><path d="M557 700 q1.5 12 0.8 22"/><path d="M567 701 q-1.5 7 -0.8 12"/><path d="M576 702 q-0.8 10 -0.4 18"/><path d="M585 702 q0.0 14 0.0 25"/><path d="M595 702 q0.8 8 0.4 15"/><path d="M604 701 q1.5 12 0.8 22"/><path d="M613 700 q-1.5 7 -0.8 12"/><path d="M623 699 q-0.8 10 -0.4 18"/><path d="M632 697 q0.0 14 0.0 25"/><path d="M642 696 q0.8 8 0.4 15"/><path d="M651 695 q1.5 12 0.8 22"/><path d="M660 693 q-1.5 7 -0.8 12"/><path d="M670 693 q-0.8 10 -0.4 18"/><path d="M679 692 q0.0 14 0.0 25"/><path d="M689 691 q0.8 8 0.4 15"/><path d="M698 691 q1.5 12 0.8 22"/><path d="M707 691 q-1.5 7 -0.8 12"/><path d="M717 691 q-0.8 10 -0.4 18"/><path d="M726 690 q0.0 14 0.0 25"/><path d="M736 690 q0.8 8 0.4 15"/><path d="M745 689 q1.5 12 0.8 22"/><path d="M754 688 q-1.5 7 -0.8 12"/><path d="M764 687 q-0.8 10 -0.4 18"/><path d="M773 685 q0.0 14 0.0 25"/><path d="M782 683 q0.8 8 0.4 15"/><path d="M792 682 q1.5 12 0.8 22"/><path d="M801 680 q-1.5 7 -0.8 12"/><path d="M811 679 q-0.8 10 -0.4 18"/><path d="M820 678 q0.0 14 0.0 25"/><path d="M829 677 q0.8 8 0.4 15"/><path d="M839 677 q1.5 12 0.8 22"/><path d="M848 678 q-1.5 7 -0.8 12"/><path d="M858 679 q-0.8 10 -0.4 18"/><path d="M867 680 q0.0 14 0.0 25"/><path d="M876 682 q0.8 8 0.4 15"/><path d="M886 685 q1.5 12 0.8 22"/><path d="M895 687 q-1.5 7 -0.8 12"/><path d="M905 690 q-0.8 10 -0.4 18"/><path d="M914 693 q0.0 14 0.0 25"/><path d="M923 695 q0.8 8 0.4 15"/><path d="M933 697 q1.5 12 0.8 22"/><path d="M942 699 q-1.5 7 -0.8 12"/><path d="M951 700 q-0.8 10 -0.4 18"/><path d="M961 700 q0.0 14 0.0 25"/><path d="M970 700 q0.8 8 0.4 15"/><path d="M980 700 q1.5 12 0.8 22"/><path d="M989 699 q-1.5 7 -0.8 12"/><path d="M998 699 q-0.8 10 -0.4 18"/><path d="M1008 698 q0.0 14 0.0 25"/><path d="M1017 697 q0.8 8 0.4 15"/><path d="M1027 696 q1.5 12 0.8 22"/><path d="M1036 695 q-1.5 7 -0.8 12"/>
+  </g>
+
+  <!-- ═══ AS VELAS ═══ -->
+  <g id="mzVelas">
+  
+  <g transform="translate(206,392)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="24.0" cy="100" rx="45.0" ry="11.4" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="15.0" cy="96" rx="23.400000000000002" ry="6.0" fill="#C9B48C" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h30 v88 q-15.0 7.199999999999999 -30 0 z" fill="url(#mz-ceraA)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h10.200000000000001 v88 q-5.1000000000000005 3.0 -10.200000000000001 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M28.4 8 h1.6 v87 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="15.0" cy="8" rx="15.0" ry="6.6" fill="#C9B48C"/>
+    <ellipse cx="15.0" cy="7" rx="14.0" ry="5.7" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M6.6 9 q-1.6 24.96 .6 32.64" stroke="#C9B48C" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M22.2 10 q1.8 15.36 .2 21.12" stroke="#C9B48C" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M15.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:0s" transform="translate(15.0,1)">
+      <ellipse cx="0" cy="-11.0" rx="6.4" ry="14.0" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-8.0" rx="2.7" ry="6.8" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-4.0" rx="1.5" ry="2.6" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="15.0" cy="-8" r="34.0" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:0s"/>
+  </g>
+  
+  <g transform="translate(266,424)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="22.0" cy="78" rx="39.0" ry="9.88" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="13.0" cy="74" rx="20.28" ry="5.2" fill="#B58676" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h26 v66 q-13.0 6.24 -26 0 z" fill="url(#mz-ceraB)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h8.84 v66 q-4.42 2.6 -8.84 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M24.4 8 h1.6 v65 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="13.0" cy="8" rx="13.0" ry="5.72" fill="#B58676"/>
+    <ellipse cx="13.0" cy="7" rx="12.0" ry="4.94" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M5.72 9 q-1.6 19.240000000000002 .6 25.16" stroke="#B58676" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M19.24 10 q1.8 11.84 .2 16.28" stroke="#B58676" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M13.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:-0.5s" transform="translate(13.0,1)">
+      <ellipse cx="0" cy="-9.459999999999999" rx="5.5040000000000004" ry="12.04" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-6.88" rx="2.322" ry="5.848" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-3.44" rx="1.29" ry="2.236" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="13.0" cy="-8" r="29.24" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:-0.5s"/>
+  </g>
+  
+  <g transform="translate(900,416)">
+    <!-- sombra projetada, jogada pro lado oposto da chama -->
+    <ellipse cx="22.0" cy="82" rx="39.0" ry="9.88" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <!-- poça de cera derretida na base -->
+    <ellipse cx="13.0" cy="78" rx="20.28" ry="5.2" fill="#C9B48C" opacity=".9"/>
+    <!-- corpo -->
+    <path d="M0 8 h26 v70 q-13.0 6.24 -26 0 z" fill="url(#mz-ceraA)"/>
+    <!-- luz quente vinda da chama, escorrendo pelo corpo -->
+    <path d="M0 8 h8.84 v70 q-4.42 2.6 -8.84 0 z" fill="#FFF3D6" opacity=".22"/>
+    <!-- luz refletida na borda escura (o que tira o aspecto chapado) -->
+    <path d="M24.4 8 h1.6 v69 q-.8 .3 -1.6 .3 z" fill="#FFE7C0" opacity=".30"/>
+    <!-- topo derretido -->
+    <ellipse cx="13.0" cy="8" rx="13.0" ry="5.72" fill="#C9B48C"/>
+    <ellipse cx="13.0" cy="7" rx="12.0" ry="4.94" fill="url(#mz-poca)"/>
+    <!-- escorrido -->
+    <path d="M5.72 9 q-1.6 20.28 .6 26.520000000000003" stroke="#C9B48C" stroke-width="2.2"
+          fill="none" opacity=".75" stroke-linecap="round"/>
+    <path d="M19.24 10 q1.8 12.48 .2 17.16" stroke="#C9B48C" stroke-width="1.7"
+          fill="none" opacity=".6" stroke-linecap="round"/>
+    <!-- pavio -->
+    <path d="M13.0 6 v-5" stroke="#2E2216" stroke-width="1.7" stroke-linecap="round"/>
+    <!-- chama -->
+    <g class="mesa-chama" style="animation-delay:-0.9s" transform="translate(13.0,1)">
+      <ellipse cx="0" cy="-9.9" rx="5.760000000000001" ry="12.6" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-7.2" rx="2.43" ry="6.12" fill="#FFF9E8" opacity=".95"/>
+      <ellipse cx="0" cy="-3.6" rx="1.35" ry="2.3400000000000003" fill="#7FA8E8" opacity=".5"/>
+    </g>
+    <circle cx="13.0" cy="-8" r="30.6" fill="url(#mz-luzQuente)" class="mesa-halo"
+            style="animation-delay:-0.9s"/>
+  </g>
+
+  </g>
+
+  <!-- ═══ A LANTERNA ═══ -->
+  <g transform="translate(182,190)" id="mzLanterna">
+    <circle cx="32" cy="58" r="80" fill="url(#mz-luzQuente)" class="mesa-halo"/>
+    <path d="M32 -16 v14" stroke="#8A6420" stroke-width="1.6"/>
+    <path d="M24 -2 a8 8 0 0 1 16 0" fill="none" stroke="url(#mz-ouroCanto)" stroke-width="2.4"/>
+    <!-- chapéu -->
+    <path d="M10 14 l22 -12 22 12 z" fill="url(#mz-ouroFace)"/>
+    <path d="M10 14 l22 -12 22 12 z" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <path d="M8 14 h48 v5 h-48 z" fill="url(#mz-ouroCanto)"/>
+    <!-- vidro -->
+    <path d="M14 19 h36 v50 h-36 z" fill="url(#mz-vidro)"/>
+    <path d="M16 21 h10 v46 h-10 z" fill="#FFF6DC" opacity=".26"/>
+    <g class="mesa-chama" transform="translate(32,58)">
+      <ellipse cx="0" cy="-8" rx="5.4" ry="11.5" fill="url(#mz-chamaG)"/>
+      <ellipse cx="0" cy="-5" rx="2.2" ry="5.4" fill="#FFF9E8" opacity=".92"/>
+    </g>
+    <!-- caixilhos -->
+    <g stroke="url(#mz-ouroCanto)" stroke-width="2.6" fill="none">
+      <path d="M14 19 v50 M50 19 v50"/>
+    </g>
+    <g stroke="#C9A24A" stroke-width="1" fill="none" opacity=".75">
+      <path d="M32 19 v50"/><path d="M14 34 h36 M14 50 h36"/>
+    </g>
+    <!-- base -->
+    <path d="M8 69 h48 v6 h-48 z" fill="url(#mz-ouroCanto)"/>
+    <path d="M12 75 h40 l-5 9 h-30 z" fill="url(#mz-ouroFace)"/>
+    <path d="M12 75 h40 l-5 9 h-30 z" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <path d="M15 76 h5 l-2 7 h-4 z" fill="#FFF6DC" opacity=".3"/>
+  </g>
+
+  <!-- ═══ BARALHO EMPILHADO — o resto das cartas, esperando ═══ -->
+  <g transform="translate(468,470) rotate(-6)">
+    <ellipse cx="26" cy="34" rx="34" ry="9" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/>
+    <g>
+      <rect x="2" y="6" width="50" height="26" rx="4" fill="#1A1E42" stroke="#8A6420" stroke-width=".8"/>
+      <rect x="1" y="3" width="50" height="26" rx="4" fill="#20254E" stroke="#A07C2C" stroke-width=".8"/>
+      <rect x="0" y="0" width="50" height="26" rx="4" fill="#252B58" stroke="#C9A24A" stroke-width="1"/>
+      <rect x="3" y="3" width="44" height="20" rx="2.6" fill="none" stroke="#C9A24A" stroke-width=".6" opacity=".5"/>
+      <path d="M25 5 L26.6 11.4 L33 13 L26.6 14.6 L25 21 L23.4 14.6 L17 13 L23.4 11.4 Z"
+            fill="none" stroke="#E0BC68" stroke-width=".9" opacity=".8"/>
+      <path d="M4 4 q8 -2 14 1" fill="none" stroke="#FFF6DC" stroke-width=".8" opacity=".3"/>
+    </g>
+  </g>
+
+  <!-- ═══ TAÇA — o vinho da noite ═══ -->
+  <g transform="translate(848,392)">
+    <ellipse cx="17" cy="86" rx="24" ry="7" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/>
+    <ellipse cx="17" cy="84" rx="17" ry="5" fill="url(#mz-ouroCanto)"/>
+    <path d="M15 46 h4 v36 h-4 z" fill="url(#mz-ouroCanto)"/>
+    <path d="M2 14 q0 30 15 32 q15 -2 15 -32 z" fill="#3A1220" opacity=".85"/>
+    <path d="M4 26 q0 19 13 21 q13 -2 13 -21 z" fill="#7A1E2E" opacity=".9"/>
+    <ellipse cx="17" cy="26" rx="13" ry="3.6" fill="#9B2F35"/>
+    <ellipse cx="13" cy="25" rx="4.4" ry="1.5" fill="#E8899A" opacity=".5"/>
+    <path d="M2 14 q0 30 15 32 q15 -2 15 -32 z" fill="none" stroke="#C9D4F0" stroke-width="1.1" opacity=".5"/>
+    <path d="M5 16 q-1 22 8 27" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity=".38"/>
+  </g>
+
+  <!-- ═══ PÉTALAS SECAS espalhadas no pano ═══ -->
+  <g>
+    <g transform="translate(300,548) rotate(-24)">
+      <path d="M0 0 q9 -7 17 0 q-9 8 -17 0 z" fill="#8A2A32"/>
+      <path d="M2 0 q7 -5 13 0" fill="none" stroke="#C4535E" stroke-width=".7" opacity=".6"/>
+    </g>
+    <g transform="translate(258,570) rotate(16)">
+      <path d="M0 0 q8 -6 15 0 q-8 7 -15 0 z" fill="#6E2028"/>
+    </g>
+    <g transform="translate(636,502) rotate(-8)">
+      <path d="M0 0 q7 -5 13 0 q-7 6 -13 0 z" fill="#8A2A32" opacity=".9"/>
+    </g>
+    <g transform="translate(922,506) rotate(30)">
+      <path d="M0 0 q8 -6 15 0 q-8 7 -15 0 z" fill="#7A2530"/>
+      <path d="M2 0 q6 -4 11 0" fill="none" stroke="#C4535E" stroke-width=".7" opacity=".55"/>
+    </g>
+    <g transform="translate(560,538) rotate(-40)">
+      <path d="M0 0 q6 -5 12 0 q-6 6 -12 0 z" fill="#6E2028" opacity=".85"/>
+    </g>
+  </g>
+
+  <!-- ═══ AS MOEDAS ═══ -->
+  <g id="mzMoedas">
+  <g transform="translate(352,508) rotate(0)"><ellipse cx="2" cy="9.3" rx="17.25" ry="6.0" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-1.5" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-0.6000000000000001" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-3.2" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-3.2" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-4.7" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-3.8000000000000003" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-6.4" rx="15" ry="5.3999999999999995" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-6.4" rx="9.3" ry="3.3" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.5" cy="-7.9" rx="4.5" ry="1.5" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(390,518) rotate(0)"><ellipse cx="2" cy="8.67" rx="15.524999999999999" ry="5.4" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="8.37" ry="2.97" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.05" cy="-1.35" rx="4.05" ry="1.35" fill="#FFF6DC" opacity=".55"/><ellipse cx="0" cy="-0.6000000000000001" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="-3.2" rx="13.5" ry="4.859999999999999" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="-3.2" rx="8.37" ry="2.97" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-4.05" cy="-4.550000000000001" rx="4.05" ry="1.35" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(320,522) rotate(0)"><ellipse cx="2" cy="8.25" rx="14.374999999999998" ry="5.0" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar3)"/><ellipse cx="0" cy="2.6" rx="12.5" ry="4.5" fill="url(#mz-ouroCanto)"/>
+        <ellipse cx="0" cy="0.0" rx="12.5" ry="4.5" fill="url(#mz-ouroFace)"/>
+        <ellipse cx="0" cy="0.0" rx="7.75" ry="2.75" fill="none" stroke="#7A5514" stroke-width=".7" opacity=".7"/>
+        <ellipse cx="-3.75" cy="-1.25" rx="3.75" ry="1.25" fill="#FFF6DC" opacity=".55"/></g>
+  <g transform="translate(414,502) rotate(-26)">
+    <ellipse cx="2" cy="14" rx="14" ry="4.4" fill="#1A0A10" opacity=".5" filter="url(#mz-borrar3)"/>
+    <circle r="13.5" fill="url(#mz-ouroFace)"/>
+    <circle r="13.5" fill="none" stroke="#7A5514" stroke-width=".9"/>
+    <circle r="7.6" fill="none" stroke="#7A5514" stroke-width=".8" opacity=".7"/>
+    <ellipse cx="-4.4" cy="-4.4" rx="4.2" ry="2.6" fill="#FFF6DC" opacity=".62" transform="rotate(-38)"/>
+  </g>
+
+  </g>
+
+  <!-- ═══ O INCENSO ═══ -->
+  <g transform="translate(1028,396)">
+    <ellipse cx="14" cy="72" rx="22" ry="7" fill="#1A0A10" opacity=".5" filter="url(#mz-borrar3)"/>
+    <path d="M4 62 q10 -7 20 0 v7 q-10 5 -20 0 z" fill="url(#mz-ouroFace)" filter="url(#mz-metal)"/>
+    <ellipse cx="14" cy="62" rx="10" ry="3.4" fill="#4E340B"/>
+    <path d="M14 61 v-38" stroke="#6B5638" stroke-width="1.5"/>
+    <circle cx="14" cy="23" r="2.4" fill="#F08A32"/>
+    <circle cx="14" cy="23" r="6" fill="url(#mz-luzQuente)"/>
+    <g class="mesa-fumo" style="transform-origin:14px 23px">
+      <path d="M14 21 q8 -11 0 -22 q-8 -11 0 -19" fill="none" stroke="#D8D2C2"
+            stroke-width="1.7" opacity=".42" stroke-linecap="round" filter="url(#mz-borrar3)"/>
+    </g>
+    <g class="mesa-fumo" style="animation-delay:-2.6s;transform-origin:14px 23px">
+      <path d="M14 21 q-7 -12 1 -23 q8 -10 0 -18" fill="none" stroke="#D8D2C2"
+            stroke-width="1.3" opacity=".3" stroke-linecap="round" filter="url(#mz-borrar3)"/>
+    </g>
+  </g>
+
+  <!-- ═══ O PANDEIRO ═══ -->
+  <g transform="translate(938,388) rotate(-13)">
+    <ellipse cx="48" cy="104" rx="50" ry="13" fill="#1A0A10" opacity=".55" filter="url(#mz-borrar4)"/>
+    <circle cx="48" cy="48" r="47" fill="url(#mz-aroPand)"/>
+    <circle cx="48" cy="48" r="47" fill="none" stroke="#E0BC68" stroke-width="1.4" opacity=".65"/>
+    <circle cx="48" cy="48" r="38" fill="url(#mz-pele)"/>
+    <circle cx="48" cy="48" r="38" filter="url(#mz-graoFino)" fill="#E3CFA4" opacity=".5"/>
+    <circle cx="48" cy="48" r="38" fill="url(#mz-bordado)"/>
+    <circle cx="48" cy="48" r="38" fill="none" stroke="#8A6420" stroke-width=".9" opacity=".55"/>
+    <path d="M48 23 L51.6 42 L70 45.6 L51.6 49 L48 68 L44.4 49 L26 45.6 L44.4 42 Z"
+          fill="none" stroke="#8A6420" stroke-width="1.2" opacity=".7"/>
+    <ellipse cx="34" cy="30" rx="14" ry="8" fill="#FFF9E8" opacity=".28" transform="rotate(-34 34 30)"/>
+    <g filter="url(#mz-metal)">
+      <circle cx="48" cy="1" r="5"/><circle cx="81" cy="15" r="5"/><circle cx="95" cy="48" r="5"/>
+      <circle cx="81" cy="81" r="5"/><circle cx="48" cy="95" r="5"/><circle cx="15" cy="81" r="5"/>
+      <circle cx="1" cy="48" r="5"/><circle cx="15" cy="15" r="5"/>
+    </g>
+    <g fill="url(#mz-ouroFace)">
+      <circle cx="48" cy="1" r="5"/><circle cx="81" cy="15" r="5"/><circle cx="95" cy="48" r="5"/>
+      <circle cx="81" cy="81" r="5"/><circle cx="48" cy="95" r="5"/><circle cx="15" cy="81" r="5"/>
+      <circle cx="1" cy="48" r="5"/><circle cx="15" cy="15" r="5"/>
+    </g>
+  </g>
+
+  <!-- ═══ O BAÚ ═══
+       ⚠️ SEM filter="url(#mz-metal)" nas bandas. O feComposite arithmetic do filtro
+       comia o alfa das tiras finas e o baú virava uns pauzinhos soltos no ar.
+       Filtro de especular só funciona em forma cheia; em tira estreita, quebra.
+       Aqui o metal é gradiente + um fio de luz por cima. -->
+  <g transform="translate(690,436)">
+    <ellipse cx="50" cy="86" rx="60" ry="13" fill="#1A0A10" opacity=".6" filter="url(#mz-borrar4)"/>
+    <!-- corpo -->
+    <path d="M6 44 h88 v38 q-44 7 -88 0 z" fill="url(#mz-madeira)"/>
+    <path d="M6 44 h88 v38 q-44 7 -88 0 z" filter="url(#mz-grao)" fill="#6B4526" opacity=".5"/>
+    <!-- tampa abaulada -->
+    <path d="M6 44 q44 -40 88 0 z" fill="url(#mz-madeiraTampa)"/>
+    <path d="M6 44 q44 -40 88 0 z" filter="url(#mz-grao)" fill="#7A4E28" opacity=".45"/>
+    <path d="M12 41 q38 -32 76 -3" fill="none" stroke="#C99A5E" stroke-width="1.6" opacity=".5"/>
+    <path d="M18 43 q32 -25 64 -2" fill="none" stroke="#C99A5E" stroke-width=".9" opacity=".28"/>
+    <!-- bandas de metal -->
+    <g fill="url(#mz-ouroCanto)">
+      <path d="M24 20 q3.6 -2.6 7.4 -4.2 v66.8 q-3.7 .5 -7.4 .8 z"/>
+      <path d="M68.6 15.8 q3.8 1.6 7.4 4.2 v63.4 q-3.7 -.3 -7.4 -.8 z"/>
+      <path d="M6 56 h88 v6 q-44 6 -88 0 z"/>
+    </g>
+    <g stroke="#F0D48A" stroke-width=".9" opacity=".5" fill="none">
+      <path d="M25.6 19 v65"/><path d="M70 17 v65"/><path d="M6 57 h88"/>
+    </g>
+    <!-- fechadura -->
+    <rect x="42" y="50" width="15" height="18" rx="2.6" fill="url(#mz-ouroFace)"/>
+    <rect x="42" y="50" width="15" height="18" rx="2.6" fill="none" stroke="#7A5514" stroke-width=".8"/>
+    <circle cx="49.5" cy="57" r="2.8" fill="#2A1608"/>
+    <path d="M49.5 59 v5" stroke="#2A1608" stroke-width="1.6"/>
+    <ellipse cx="45" cy="53" rx="3.4" ry="1.6" fill="#FFF6DC" opacity=".55"/>
+    <!-- linha da tampa -->
+    <path d="M6 44 q44 7 88 0" fill="none" stroke="#2A1608" stroke-width="1.5" opacity=".65"/>
+  </g>
+
+  <!-- ═══ POEIRA SUSPENSA NA LUZ DAS VELAS ═══
+       Partícula flutuando no facho é o detalhe que o olho lê como "foto".
+       Só existe onde há luz quente — no escuro, poeira não aparece. -->
+  <g class="mesa-halo" style="animation-duration:7s">
+    <circle cx="446.0" cy="599.2" r="1.86" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="339.4" cy="489.0" r="1.39" fill="#FFD9A0" opacity="0.17"/>
+    <circle cx="211.4" cy="493.4" r="0.99" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="157.9" cy="418.0" r="1.62" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="314.0" cy="554.2" r="1.17" fill="#FFD9A0" opacity="0.14"/>
+    <circle cx="400.6" cy="523.7" r="1.56" fill="#FFD9A0" opacity="0.36"/>
+    <circle cx="460.6" cy="476.2" r="1.69" fill="#FFD9A0" opacity="0.26"/>
+    <circle cx="333.1" cy="538.7" r="1.11" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="301.7" cy="550.8" r="1.47" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="355.6" cy="438.2" r="0.93" fill="#FFD9A0" opacity="0.24"/>
+    <circle cx="411.1" cy="441.1" r="0.85" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="162.5" cy="457.9" r="1.44" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="255.9" cy="477.6" r="1.08" fill="#FFD9A0" opacity="0.24"/>
+    <circle cx="398.8" cy="515.3" r="1.04" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="400.8" cy="548.5" r="1.78" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="324.6" cy="592.9" r="1.47" fill="#FFD9A0" opacity="0.48"/>
+    <circle cx="203.5" cy="604.8" r="0.77" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="157.5" cy="570.0" r="1.59" fill="#FFD9A0" opacity="0.49"/>
+    <circle cx="407.6" cy="599.3" r="1.4" fill="#FFD9A0" opacity="0.5"/>
+    <circle cx="389.7" cy="472.7" r="1.97" fill="#FFD9A0" opacity="0.26"/>
+    <circle cx="211.9" cy="415.9" r="1.31" fill="#FFD9A0" opacity="0.19"/>
+    <circle cx="448.7" cy="599.6" r="0.98" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="319.3" cy="435.6" r="1.41" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="231.0" cy="488.6" r="1.87" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="259.7" cy="587.4" r="1.76" fill="#FFD9A0" opacity="0.46"/>
+    <circle cx="370.1" cy="486.7" r="1.6" fill="#FFD9A0" opacity="0.44"/>
+    <circle cx="354.6" cy="450.1" r="1.08" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="396.9" cy="517.0" r="1.41" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="184.7" cy="532.6" r="1.13" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="417.3" cy="452.2" r="1.94" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="329.8" cy="513.8" r="1.01" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="300.6" cy="494.4" r="1.63" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="270.7" cy="565.0" r="0.88" fill="#FFD9A0" opacity="0.45"/>
+    <circle cx="215.1" cy="543.0" r="0.93" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="285.2" cy="417.2" r="1.61" fill="#FFD9A0" opacity="0.3"/>
+    <circle cx="370.5" cy="513.2" r="1.42" fill="#FFD9A0" opacity="0.32"/>
+    <circle cx="245.3" cy="588.7" r="0.81" fill="#FFD9A0" opacity="0.45"/>
+    <circle cx="426.3" cy="504.5" r="1.71" fill="#FFD9A0" opacity="0.38"/>
+    <circle cx="343.6" cy="461.2" r="1.12" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="246.7" cy="601.5" r="1.14" fill="#FFD9A0" opacity="0.27"/>
+    <circle cx="284.3" cy="571.5" r="1.32" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="231.8" cy="458.4" r="0.82" fill="#FFD9A0" opacity="0.2"/>
+    <circle cx="234.4" cy="579.0" r="1.35" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="298.1" cy="425.4" r="1.44" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="424.7" cy="454.4" r="1.81" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="464.4" cy="533.2" r="0.76" fill="#FFD9A0" opacity="0.43"/>
+    <circle cx="915.1" cy="465.2" r="0.75" fill="#FFD9A0" opacity="0.33"/>
+    <circle cx="878.1" cy="532.9" r="1.0" fill="#FFD9A0" opacity="0.29"/>
+    <circle cx="918.6" cy="414.1" r="1.52" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="893.9" cy="575.7" r="1.51" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="863.8" cy="510.0" r="0.74" fill="#FFD9A0" opacity="0.3"/>
+    <circle cx="953.8" cy="527.6" r="1.17" fill="#FFD9A0" opacity="0.32"/>
+    <circle cx="1024.3" cy="508.5" r="1.19" fill="#FFD9A0" opacity="0.19"/>
+    <circle cx="886.8" cy="416.6" r="1.46" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="945.3" cy="457.0" r="1.22" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="1031.8" cy="478.5" r="0.96" fill="#FFD9A0" opacity="0.28"/>
+    <circle cx="1009.0" cy="566.6" r="0.91" fill="#FFD9A0" opacity="0.35"/>
+    <circle cx="1056.3" cy="576.8" r="0.73" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="1014.8" cy="549.6" r="0.64" fill="#FFD9A0" opacity="0.21"/>
+    <circle cx="1004.8" cy="536.5" r="1.14" fill="#FFD9A0" opacity="0.16"/>
+    <circle cx="941.4" cy="410.5" r="0.92" fill="#FFD9A0" opacity="0.22"/>
+    <circle cx="1024.6" cy="506.1" r="1.01" fill="#FFD9A0" opacity="0.17"/>
+    <circle cx="923.1" cy="520.7" r="1.05" fill="#FFD9A0" opacity="0.15"/>
+    <circle cx="1024.3" cy="503.6" r="1.57" fill="#FFD9A0" opacity="0.25"/>
+    <circle cx="984.6" cy="477.0" r="1.21" fill="#FFD9A0" opacity="0.36"/>
+    <circle cx="1056.3" cy="519.0" r="1.03" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="1028.0" cy="470.5" r="0.98" fill="#FFD9A0" opacity="0.12"/>
+    <circle cx="866.8" cy="470.3" r="1.57" fill="#FFD9A0" opacity="0.31"/>
+  </g>
+
+  <!-- ═══ A BOLA DE CRISTAL ═══ -->
+  <g>
+    <ellipse cx="590" cy="432" rx="76" ry="17" fill="#1A0A10" opacity=".6" filter="url(#mz-borrar4)"/>
+    <path d="M552 428 q38 18 76 0 l-9 -20 q-29 11 -58 0 z" fill="url(#mz-ouroFace)" filter="url(#mz-metal)"/>
+    <path d="M552 428 q38 18 76 0 l-3 8 q-35 15 -70 0 z" fill="#6B4C18"/>
+    <circle cx="590" cy="346" r="150" fill="url(#mz-brilhoBola)" class="mesa-halo"/>
+    <circle cx="590" cy="346" r="78" fill="url(#mz-cristal)"/>
+    <circle id="mzAncora" cx="590" cy="346" r="0.1" fill="none"/>
+    <!-- refração: a mesa aparece invertida dentro do vidro -->
+    <ellipse cx="590" cy="386" rx="52" ry="16" fill="#8A3238" opacity=".2" filter="url(#mz-borrar3)"/>
+    <!-- ⭐ A NÉVOA. Bola de cristal de verdade tem fumaça dentro — e é ela que
+         dá fundo pro texto. Antes as palavras caíam em cima do especular e
+         sumiam. Aqui a leitura vem da física, não de uma caixa preta atrás. -->
+    <ellipse cx="590" cy="344" rx="63" ry="48" fill="#0A0C22" opacity=".68" filter="url(#mz-borrar16)"/>
+    <ellipse cx="592" cy="326" rx="52" ry="26" fill="#0A0C22" opacity=".5" filter="url(#mz-borrar8)"/>
+    <ellipse cx="578" cy="344" rx="34" ry="22" fill="#2A3160" opacity=".45" filter="url(#mz-borrar8)"/>
+    <ellipse cx="606" cy="366" rx="28" ry="17" fill="#1A2048" opacity=".4" filter="url(#mz-borrar8)"/>
+    <!-- especular principal e secundário -->
+    <ellipse cx="551" cy="301" rx="21" ry="13" fill="#FFF9E8" opacity=".52" transform="rotate(-30 551 301)"/>
+    <ellipse cx="545" cy="295" rx="8.4" ry="5.6" fill="#FFFFFF" opacity=".65" transform="rotate(-30 545 295)"/>
+    <ellipse cx="616" cy="384" rx="13" ry="8" fill="#CBD8FF" opacity=".2" transform="rotate(-26 616 384)"/>
+    <!-- luz da lua raspando a borda de cima -->
+    <path d="M528 322 a78 78 0 0 1 96 -46" fill="none" stroke="#DCE6FF" stroke-width="2.2" opacity=".38"/>
+    <!-- luz das velas raspando a base -->
+    <path d="M534 388 a78 78 0 0 0 106 20" fill="none" stroke="#FFC97A" stroke-width="2" opacity=".3"/>
+    <circle cx="590" cy="346" r="78" fill="none" stroke="#E0BC68" stroke-width="1.4" opacity=".8"/>
+    <g fill="#CBD8FF">
+      <circle cx="560" cy="330" r="1.5" opacity=".7"/><circle cx="616" cy="342" r="1.1" opacity=".5"/>
+      <circle cx="576" cy="376" r="1.3" opacity=".45"/><circle cx="606" cy="314" r="1" opacity=".4"/>
+    </g>
+  </g>
+
+  <!-- ═══ VINHETA — o último véu. Sem ela a cena fica plana como recorte;
+       com ela o olho é puxado pro centro, que é onde está o número. ═══ -->
+  <rect y="70" width="1180" height="630" fill="url(#mz-vinheta)" pointer-events="none"/>
+</svg>
+  <div class="mesa-topo">
+    <span class="mesa-dia" id="mzDia"></span>
+    <p class="mesa-frase" id="mzFrase"></p>
+  </div>
+
+  <div class="mesa-bola" id="mesaBola">
+    <span class="k" id="mzBolaK">a mesa diz</span>
+    <span class="v" id="mzBolaV">—</span>
+  </div>
+
+  <div class="mesa-cartas" id="mzCartas"></div>
+
+  <button class="mesa-entrar" id="mzEntrar" type="button">entrar no painel</button>
 </div>
 
 <div class="tip" id="tip"></div>
@@ -706,7 +2060,7 @@ svg.g{display:block;width:100%;overflow:visible}
 
 var DADOS = null;
 var CALC  = {};
-var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—" };
+var ESTADO = { tela:"hoje", mes:null, janela:"mes", carregando:false, origem:"—", erroRede:null };
 /* Categorias que alimentam a alma ou a saúde. O painel mostra o número,
    mas NUNCA as aponta como problema num insight. */
 var INTOCAVEIS = ["Religião","Saúde","chá","Prevenção e saúde"];
@@ -848,13 +2202,30 @@ function recalcular(){
 
   /* RENDA DE REFERÊNCIA = o que se espera receber por mês daqui pra frente.
      É EXPECTATIVA, nunca extrato — só serve pros meses SEGUINTES. */
-  c.rendaRefCents = soma(DADOS.aReceber, function(r){ return r.cents; });
+  /* ⚠️ RENDA DE REFERÊNCIA É DE UM MÊS, NÃO DA JANELA INTEIRA.
+     Isto somava tudo que o Organizze espera receber nos próximos 3 meses e
+     chamava de "renda". Com dois salários previstos na janela, o painel
+     anunciou renda de referência de R$ 16.900,00 — o dobro da real. Agora
+     agrupa por mês e usa a MEDIANA dos meses que têm entrada: um mês atípico
+     (13º, PLR, reembolso) não vira salário. */
+  c.rendaRefCents = (function(){
+    var porMes = {};
+    (DADOS.aReceber || []).forEach(function(r){
+      var m = String(r.data).slice(0, 7);
+      porMes[m] = (porMes[m] || 0) + r.cents;
+    });
+    var vals = Object.keys(porMes).map(function(m){ return porMes[m]; })
+                     .filter(function(v){ return v > 0; }).sort(function(a, b){ return a - b; });
+    if (!vals.length) return 0;
+    var meio = Math.floor(vals.length / 2);
+    return vals.length % 2 ? vals[meio] : Math.round((vals[meio - 1] + vals[meio]) / 2);
+  })();
   c.pctComprometido = c.rendaRefCents > 0 ? c.recorrenteCents / c.rendaRefCents : 0;
 
   /* FÔLEGO — simulação mês a mês, não média. Média mente quando um mês tem duas faturas. */
   c.folegoDias = folego(c.caixaCents, c.compromissosCents, c.recorrenteCents, c.diasRestantes);
 
-  /* SALDO PROJETADO DIA A DIA (30 dias) */
+  /* SALDO PROJETADO DIA A DIA (92 dias — ver comentário em projetar()) */
   c.serieSaldo = projetar();
 
   /* CATEGORIAS com Δ contra a média dos 3 meses anteriores */
@@ -867,6 +2238,12 @@ function recalcular(){
      traduzir gasto em "dias de casa paga". Moradia + contas de casa ÷ 30. */
   c.casaDiaCents = Math.round((c.fixasCents + c.variaveisCents) / 30);
 
+  /* O ECLIPSE — o dia em que a linha do saldo cruza o zero, e o fundo do poço.
+     Este é o número mais importante do painel: é o único que responde "até
+     quando eu aguento". Ficava escondido numa célula da tela Mês; agora nasce
+     aqui e aparece na tela Hoje. */
+  c.eclipse = calcularEclipse(c.serieSaldo, c.casaDiaCents);
+
   /* SEMÁFORO — pode · calma · melhor não. É a resposta na hora da vontade de comprar. */
   c.semaforo = semaforo(c);
 
@@ -877,8 +2254,115 @@ function recalcular(){
      separado do "hoje" pra nunca misturar as duas leituras. */
   c.sel = calcularMes(ESTADO.mes || ym(ano,mes), c);
 
+  /* A TIRAGEM DO DIA — depende de c.sel e c.eclipse, por isso nasce por último. */
+  c.conselho = conselhoDoDia(c);
+
   CALC = c;
   window.__numerosDoPainel = c; // pra conferência externa
+}
+
+/* O CONSELHO DO DIA — a terceira carta da tiragem.
+   Escolhe UMA coisa só, por ordem de urgência. A regra é dura de propósito:
+   se tudo é importante, nada é — e ele para de ler. Nunca cobra, nunca acusa;
+   quando não há nada urgente, comemora ou ensina. */
+function conselhoDoDia(c){
+  var hoje = DADOS.hoje, hojeD = D(hoje);
+  function dias(isoStr){ return Math.round((D(isoStr) - hojeD) / 86400000); }
+
+  // 1. A JANELA — a fatura em formação fechando sem caber no caixa.
+  //
+  //    ⚠️ ESTA CONDIÇÃO JÁ ESTEVE ERRADA. Eu tinha amarrado ela a
+  //    `c.mesFecha === false`, ou seja, ao mês CORRENTE estourar. Mas a fatura
+  //    em formação vence no mês SEGUINTE — então em 24/08/2026, com agosto
+  //    fechando redondo e a fatura de 08/09 em R$ 10.260,33 contra um caixa de
+  //    R$ 3.187,95, a carta simplesmente não aparecia. Justo na semana em que
+  //    ela era a única coisa que importava.
+  //
+  //    O gatilho certo não é "o mês fechou?" — é "essa fatura cabe no caixa?".
+  var maior = null;
+  (DADOS.faturas || []).forEach(function(f){
+    if (f.status !== "emFormacao" || f.congelada) return;
+    if (!maior || Math.abs(f.saldoCents) > Math.abs(maior.saldoCents)) maior = f;
+  });
+  if (maior){
+    var devo = Math.abs(maior.saldoCents);
+    var cabe = devo <= c.caixaCents;                 // dá pra pagar à vista?
+    var cart = (DADOS.cartoes || []).find(function(x){ return x.id === maior.cartaoId; });
+    if (cart && !cabe){
+      var f1 = new Date(hojeD); f1.setDate(cart.fechamento);
+      if (f1 < hojeD) f1.setMonth(f1.getMonth() + 1);
+      var ate = dias(iso(f1));
+      if (ate <= 12){
+        var venc = cart.vencimento;
+        return {
+          rot: "A janela",
+          val: ate === 0 ? "fecha hoje" : "fecha em " + ate + (ate === 1 ? " dia" : " dias"),
+          txt: "A fatura do " + cart.nome + " fecha dia " + cart.fechamento + " com " + C(devo) +
+               " — e o caixa hoje é " + C(c.caixaCents) + ". Entre o dia " + cart.fechamento +
+               " e o dia " + venc + " é a única janela pra parcelar ela. Depois disso, só pagando."
+        };
+      }
+    }
+  }
+
+  // 2. Conta vencendo hoje ou amanhã.
+  var proxima = (DADOS.aPagar || []).find(function(p){ return dias(p.data) >= 0 && dias(p.data) <= 1; });
+  if (proxima) return {
+    rot: "Vence " + (dias(proxima.data) === 0 ? "hoje" : "amanhã"),
+    val: C(Math.abs(proxima.cents)),
+    txt: proxima.desc + (proxima.conta ? " · " + proxima.conta : "") + ". Entre atrasar Pix e atrasar cartão, o cartão nunca atrasa."
+  };
+
+  // 3. O zero chegando em qualquer ponto do horizonte.
+  //    ⚠️ ESTA REGRA VEM ANTES DE COMEMORAR O MÊS DE PROPÓSITO. O mês corrente
+  //    pode fechar redondo enquanto o seguinte afunda — foi o que aconteceu em
+  //    agosto/2026, com agosto fechando e setembro a −R$ 11.937,96. Comemorar
+  //    ali seria a mentira confortável que o plano proíbe.
+  if (c.eclipse && c.eclipse.negativa){
+    var n = c.eclipse.diasAteCruzar;
+    return {
+      rot: n <= 10 ? "O zero se aproxima" : "O zero, mais à frente",
+      val: n <= 0 ? "hoje" : "em " + n + (n === 1 ? " dia" : " dias"),
+      txt: "A linha cruza o zero em " + c.eclipse.cruzaEm.slice(8,10) + "/" + c.eclipse.cruzaEm.slice(5,7) +
+           (n <= 10 ? ". Dá tempo de escolher o que empurra e o que não empurra."
+                    : ". Ainda dá pra mudar esse desenho com calma — e é agora que sai mais barato.")
+    };
+  }
+
+  // 4. O mês fecha E não tem zero no horizonte. Aí sim é notícia boa de verdade.
+  if (c.mesFecha) return {
+    rot: "O mês fecha", val: "sozinho",
+    txt: "Sem plano, sem remendo, sem parcelar nada — e nenhum zero no horizonte de 3 meses. Era exatamente isso que você disse que queria de todo mês."
+  };
+
+  // 5. Nada urgente: a régua do dia.
+  return {
+    rot: "O teto de hoje", val: C(c.tetoDiaCents),
+    txt: c.casaDiaCents > 0
+      ? "Sua casa custa " + C(c.casaDiaCents) + " por dia. Hoje não tem nada vencendo — o dia é seu."
+      : "Hoje não tem nada vencendo."
+  };
+}
+
+/* O ECLIPSE — onde a linha do saldo cruza o zero, e onde ela chega no fundo.
+   Devolve null quando o horizonte inteiro fica no azul: nesse caso não existe
+   eclipse pra anunciar, e anunciar um seria inventar susto. */
+function calcularEclipse(serie, casaDia){
+  if (!serie || !serie.length) return null;
+  var fundo = serie.reduce(function(a,b){ return b.saldo < a.saldo ? b : a; }, serie[0]);
+  var cruz = null;
+  for (var i=0;i<serie.length;i++){ if (serie[i].saldo < 0) { cruz = serie[i]; break; } }
+  var hoje = D(DADOS.hoje);
+  function dias(isoStr){ return Math.round((D(isoStr) - hoje) / 86400000); }
+  return {
+    negativa: !!cruz,
+    cruzaEm: cruz ? cruz.data : null,
+    diasAteCruzar: cruz ? dias(cruz.data) : null,
+    fundoEm: fundo.data,
+    fundoCents: fundo.saldo,
+    diasAteFundo: dias(fundo.data),
+    casa: fundo.saldo < 0 ? emDiasDeCasa(Math.abs(fundo.saldo), casaDia) : ""
+  };
 }
 
 /* Quantos dias de casa paga cabem num valor. Devolve string curta ou "" quando não vale a pena dizer. */
@@ -1030,6 +2514,32 @@ function calcularMes(y, c){
 }
 
 var CHAVE_PAGOS = "painel:pagos:";
+/* O SELO — o carimbo de mês que fechou sozinho.
+   Ele existe porque a meta declarada do Michel é literalmente "nunca mais ter
+   plano; eu devo sempre conseguir fechar as contas do mês". Meta sem marco
+   visível vira meta esquecida — então quando um mês fecha inteiro, ele carimba
+   e o carimbo fica. Guardado em localStorage: é conquista dele, não do Organizze. */
+var CHAVE_SELOS = "riquinho:selos";
+
+function lerSelos(){
+  try { return JSON.parse(localStorage.getItem(CHAVE_SELOS) || "{}"); } catch(e){ return {}; }
+}
+function gravarSelo(y){
+  try {
+    var s = lerSelos();
+    if (s[y]) return false;              // já carimbado — não recarimba
+    s[y] = DADOS.hoje;                   // fica a data em que fechou
+    localStorage.setItem(CHAVE_SELOS, JSON.stringify(s));
+    return true;
+  } catch(e){ return false; }
+}
+
+/* Um mês só ganha selo quando TODAS as contas dele estão quitadas.
+   Mês sem conta nenhuma não conta — senão o carimbo vira enfeite barato. */
+function mereceSelo(m){
+  return !!(m && m.qtd > 0 && m.qtdPagas === m.qtd);
+}
+
 function lerPagos(y){
   try { return JSON.parse(localStorage.getItem(CHAVE_PAGOS + y) || "[]"); } catch(e){ return []; }
 }
@@ -1063,7 +2573,16 @@ function projetar(){
   DADOS.faturas.forEach(function(f){
     if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada) por(f.vencimento, f.saldoCents);
   });
-  for (var i=0;i<31;i++){
+  /* ⚠️ HORIZONTE — já foi 31 dias, e isso ESCONDIA o fundo do poço.
+     Em 20/08/2026 o painel anunciava o menor saldo em 14/09 (−R$ 10.735,23)
+     porque a janela acabava em 19/09 — e o DAS + PGFN de 30/09 caíam fora
+     dela. O buraco real era −R$ 11.937,96, no último dia do mês.
+     O worker já traz lançamento de até 6 meses à frente; quem truncava era
+     este laço. 92 dias cobre o mês corrente inteiro mais os dois seguintes.
+     Nunca mais encurtar isto sem conferir onde cai o menor saldo.
+     ⚠️ AMARRADO ao `limite` de aPagar no worker-src.js (3 meses). Se lá for
+     menor que aqui, o fim da linha fica otimista e mente de novo.        */
+  for (var i=0;i<92;i++){
     var dia = new Date(d.getTime() + i*86400000), k = iso(dia);
     if (mapa[k]) saldo += mapa[k];
     pts.push({ data:k, saldo:saldo, evento: mapa[k]||0 });
@@ -1129,10 +2648,33 @@ function lerCache(){
 }
 
 async function buscarDaRede(){
-  var r = await fetch("/api/bootstrap", { headers:{ "accept":"application/json" }, credentials:"same-origin" });
+  /* ⚠️ O ERRO PRECISA CHEGAR NA TELA. Antes, quando a leitura falhava, o
+     painel caía no cache e escrevia só "Retrato guardado — toque em
+     Atualizar". O Michel apertava Atualizar, nada mudava, e ele não tinha
+     como saber que a chamada estava morrendo — nem eu.
+     Falha escondida atrás de dado velho é pior que falha. */
+  var r;
+  try {
+    r = await fetch("/api/bootstrap", { headers:{ "accept":"application/json" }, credentials:"same-origin" });
+  } catch(e){
+    ESTADO.erroRede = "não consegui alcançar o servidor (" + (e && e.message ? e.message : "rede") + ")";
+    throw e;
+  }
   if (r.status === 401){ location.href = "/login"; throw new Error("sessao"); }
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return await r.json();
+  if (!r.ok){
+    var corpo = "";
+    try { corpo = (await r.text()).slice(0, 260); } catch(e2){}
+    ESTADO.erroRede = "o servidor respondeu HTTP " + r.status + (corpo ? " — " + corpo : "");
+    throw new Error("HTTP " + r.status);
+  }
+  try {
+    var d = await r.json();
+    ESTADO.erroRede = null;
+    return d;
+  } catch(e3){
+    ESTADO.erroRede = "a resposta veio, mas não era JSON válido";
+    throw e3;
+  }
 }
 
 async function iniciar(){
@@ -1145,6 +2687,9 @@ async function iniciar(){
     if (!DADOS && window.DADOS_DEMO){ DADOS = window.DADOS_DEMO; ESTADO.origem = "demo"; render(); }
     else if (!DADOS){ falhar(e); }
   }
+  /* A mesa só se monta DEPOIS que o dado chega — cena bonita com número
+     errado é pior que cena nenhuma. E só uma vez por dia. */
+  if (CALC && CALC.dadosCarregados && !mesaJaVista()) abrirMesa();
 }
 
 async function sincronizar(){
@@ -1173,6 +2718,7 @@ function falhar(e){
 }
 function avisarFalha(){
   var s = el("selo"); s.classList.add("alerta");
+  s.title = ESTADO.erroRede || "";
   s.innerHTML = '<span class="ponto"></span><b>Rede falhou — mostrando o retrato guardado</b>';
 }
 
@@ -1237,8 +2783,46 @@ function mesesDisponiveis(){
 }
 
 /* --------------------------------------------------------- TELA: A PAGAR -- */
+/* O SELO DO MÊS — o carimbo de mês que fechou sozinho.
+   Só aparece quando o mês está inteiro quitado, e conta quantos já fecharam
+   assim: é a sequência que dá sentido ao carimbo isolado.
+
+   ⚠️ O NOME TEM SUFIXO POR CAUSA DE UM ERRO MEU. Eu chamei esta função de
+   `renderSelo` e ela SOBRESCREVEU a renderSelo() que já existia — a do selo de
+   procedência do topo, que avisa quando o dado veio do cache. Duas declarações
+   com o mesmo nome não dão erro nenhum em JS: a última cala a primeira, e o
+   aviso de cache sumiria sem ninguém notar.
+   Antes de criar função nova aqui: grep -n "^function nome" index.html         */
+function renderSeloMes(m){
+  var bloco = el("pSeloBloco"), node = el("pSelo");
+  if (!bloco || !node) return;
+  if (!mereceSelo(m)) { bloco.hidden = true; return; }
+
+  gravarSelo(m.ym);
+  var total = Object.keys(lerSelos()).length;
+  bloco.hidden = false;
+
+  node.innerHTML =
+    '<svg class="carimbo" width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">' +
+      '<circle cx="38" cy="38" r="33" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>' +
+      '<circle cx="38" cy="38" r="28" fill="none" stroke="currentColor" stroke-width=".8" opacity=".35"/>' +
+      '<path d="M38 16 L42.2 33.4 L59 26.2 L51.6 41.6 L59 57 L42.2 49.8 L38 67 L33.8 49.8 L17 57 L24.4 41.6 L17 26.2 L33.8 33.4 Z" ' +
+        'fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>' +
+      '<circle cx="38" cy="41.6" r="2.6" fill="currentColor"/>' +
+    '</svg>' +
+    '<div class="selo-txt">' +
+      '<span class="t">' + rotuloMes(m.ym) + ' fechou.</span>' +
+      '<span class="s">' + m.qtd + (m.qtd === 1 ? " conta paga" : " contas pagas") + ', ' +
+        C(m.totalCents) + ' no total. Sem plano, sem remendo, sem parcelar nada.</span>' +
+      '<span class="h">' + (total === 1 ? "primeiro mês carimbado"
+                                        : total + " meses carimbados até aqui") + '</span>' +
+    '</div>';
+}
+
 function renderPagar(){
   var m = CALC.sel;
+
+  renderSeloMes(m);
 
   el("pEscopo").textContent = "Contas que vencem em " + m.rotulo +
     (m.corrente ? " · hoje é dia " + CALC.diaDoMes : "");
@@ -1248,8 +2832,14 @@ function renderPagar(){
     { rot:"Você já marcou", val:C(m.pagosCents), pe:m.qtdPagas + " de " + m.qtd, cls: m.qtdPagas ? "bom" : "" },
     { rot:"Falta pagar", val:C(m.faltaCents), pe: m.faltaCents > 0 ? "ainda em aberto" : "tudo marcado",
       cls: m.faltaCents > 0 ? "" : "bom" },
+    /* ⚠️ "nada em aberto" com 73 contas vencidas na lista embaixo é
+       contradição na cara do leitor. Sem próxima e com falta a pagar
+       significa que TUDO já venceu — e é isso que tem que estar escrito. */
     { rot:"Próxima", val: m.proxima ? C(Math.abs(m.proxima.cents)) : "—",
-      pe: m.proxima ? m.proxima.desc + " · " + m.proxima.data.slice(8,10) + "/" + m.proxima.data.slice(5,7) : "nada em aberto" }
+      pe: m.proxima
+            ? m.proxima.desc + " · " + m.proxima.data.slice(8,10) + "/" + m.proxima.data.slice(5,7)
+            : (m.faltaCents > 0 ? "todas já venceram" : "nada em aberto"),
+      cls: (!m.proxima && m.faltaCents > 0) ? "ruim" : "" }
   ]);
 
   var frac = m.totalCents > 0 ? m.pagosCents / m.totalCents : 0;
@@ -1300,6 +2890,324 @@ function renderPagar(){
 }
 
 /* ---------------------------------------------------------- TELA: HOJE ---- */
+/* ═══ O BARALHO ═══════════════════════════════════════════════════
+   Seis arcanos, um por tela. Cada carta mostra na frente quem ela é, e no
+   verso o número que resume a tela. Tocar vira a carta e SÓ DEPOIS abre —
+   a virada é a transição, não um enfeite antes dela.
+
+   A frente e o verso vêm de ARCANOS + verso(c): o desenho é fixo, o número
+   nasce em recalcular() como todo o resto. Nenhuma carta calcula nada.     */
+
+var ARCANOS = [
+  { tela:"hoje",  rn:"I",   nome:"A Estrela",    sig:"onde você está<br>agora · o caixa",
+    fig:'<path d="M40 8 L46 32 L70 26 L54 40 L70 54 L46 48 L40 72 L34 48 L10 54 L26 40 L10 26 L34 32 Z"/><circle cx="40" cy="40" r="4" fill="currentColor" stroke="none"/>' },
+  { tela:"pagar", rn:"II",  nome:"O Arauto",     sig:"o que se aproxima<br>contas do mês",
+    fig:'<path d="M40 12 L40 44" stroke-linecap="round"/><circle cx="40" cy="52" r="5"/><path d="M22 28 A24 24 0 0 1 58 28"/><path d="M14 20 A34 34 0 0 1 66 20" opacity=".5"/>' },
+  { tela:"mes",   rn:"III", nome:"A Roda",       sig:"o mês girando<br>fluxo e projeção",
+    fig:'<circle cx="40" cy="40" r="28"/><circle cx="40" cy="40" r="9"/><path d="M40 12 L40 31 M40 49 L40 68 M12 40 L31 40 M49 40 L68 40"/><path d="M20 20 L28 28 M60 20 L52 28 M20 60 L28 52 M60 60 L52 52" opacity=".55"/>' },
+  { tela:"onde",  rn:"IV",  nome:"O Céu",        sig:"para onde foi<br>constelação",
+    fig:'<path d="M18 22 L34 44 L58 30 L66 56 L38 62 L18 22" opacity=".55"/><circle cx="18" cy="22" r="4" fill="currentColor" stroke="none"/><circle cx="34" cy="44" r="2.6" fill="currentColor" stroke="none"/><circle cx="58" cy="30" r="3.4" fill="currentColor" stroke="none"/><circle cx="66" cy="56" r="2.2" fill="currentColor" stroke="none"/><circle cx="38" cy="62" r="3" fill="currentColor" stroke="none"/>' },
+  { tela:"comp",  rn:"V",   nome:"As Correntes", sig:"o que já está<br>comprometido",
+    fig:'<ellipse cx="40" cy="22" rx="13" ry="8"/><ellipse cx="40" cy="40" rx="13" ry="8"/><ellipse cx="40" cy="58" rx="13" ry="8" opacity=".5"/>' },
+  { tela:"saude", rn:"VI",  nome:"A Lua",        sig:"o clima do mês<br>saúde financeira",
+    fig:'<circle cx="40" cy="40" r="24"/><circle cx="40" cy="40" r="17" stroke-dasharray="2 4" opacity=".55"/>' }
+];
+
+/* O verso de cada arcano. Só lê CALC — nunca calcula. */
+function versoDoArcano(tela, c){
+  var m = c.sel;
+  if (tela === "hoje") return {
+    k:"Caixa hoje", v:C(c.caixaCents), tom:"",
+    d:"Todo o dinheiro que existe agora. Sem promessa dentro.",
+    b:DADOS.contas.length + (DADOS.contas.length === 1 ? " conta" : " contas") };
+
+  if (tela === "pagar") return {
+    k:"Falta pagar", v:C(m.faltaCents), tom: m.faltaCents > 0 ? "" : "bom",
+    d: m.qtd === 0 ? "Nenhuma conta em aberto." : m.qtdPagas + " de " + m.qtd + " já marcadas.",
+    b:m.rotulo };
+
+  if (tela === "mes"){
+    var e = c.eclipse;
+    return { k: e && e.negativa ? "Fundo do poço" : "Menor saldo",
+      v: e ? C(e.fundoCents) : "—", tom: e && e.fundoCents < 0 ? "ruim" : "bom",
+      d: e && e.negativa ? "A linha cruza o zero em " + e.cruzaEm.slice(8,10) + "/" + e.cruzaEm.slice(5,7) + "."
+                         : "A linha não cruza o zero nos próximos 3 meses.",
+      b: e ? (e.negativa ? "eclipse " : "fundo ") + e.fundoEm.slice(8,10) + "/" + e.fundoEm.slice(5,7) : "" };
+  }
+
+  if (tela === "onde") return {
+    k:"Gasto de " + nomeMesCurto(m.ym), v:C(m.gastoCents), tom:"",
+    d:"Para onde o dinheiro foi neste mês, categoria por categoria.",
+    b:"ver constelação" };
+
+  if (tela === "comp"){
+    var aberto = soma((DADOS.faturas||[]).filter(function(f){
+      return !f.congelada && f.saldoCents !== 0 && f.status !== "futura";
+    }), function(f){ return Math.abs(f.saldoCents); });
+    return { k:"Faturas em aberto", v:C(aberto), tom: aberto > c.caixaCents ? "ruim" : "",
+      d:"O que já foi comprado e ainda vai chegar como conta.", b:"parcelas e dívidas" };
+  }
+
+  var sem = c.semaforo || {};
+  return { k:"O clima de hoje", v:sem.rot || "—",
+    tom: sem.e === "pode" ? "bom" : (sem.e === "nao" ? "ruim" : ""),
+    d: c.folegoDias != null ? "O caixa segura " + fmtFolego(c.folegoDias) + " sem entrar nada." : "",
+    b:"indicadores" };
+}
+
+/* ══════════ A MESA DA CIGANA ════════════════════════════════════
+   A entrada do dia. Aparece uma vez, na primeira abertura, e some.
+
+   ⭐ A REGRA QUE SUSTENTA A CENA: nenhum objeto é enfeite. Cada um lê um
+   número do Organizze e muda sozinho. Se um dia alguém acrescentar um
+   objeto que não lê nada, a mesa vira cenário — e aí ela não vale o peso
+   que tem. Oito objetos, oito funções:
+     lua      → o semáforo (pode / calma / melhor não)
+     velas    → quanto do mês já queimou
+     bola     → a prioridade do dia (o mesmo conselho da Tiragem)
+     moedas   → o caixa, sem dígito
+     lanterna → acesa só quando tem janela correndo
+     baú      → a reserva de emergência (fechado = ainda não existe)
+     pandeiro → o gasto livre do mês
+     incenso  → as assinaturas queimando sozinhas                        */
+
+var CHAVE_MESA = "painel:mesa:";
+
+function mesaJaVista(){
+  try { return localStorage.getItem(CHAVE_MESA + DADOS.hoje) === "1"; } catch(e){ return true; }
+}
+function marcarMesaVista(){
+  try { localStorage.setItem(CHAVE_MESA + DADOS.hoje, "1"); } catch(e){}
+}
+
+/* A LUA muda de fase com o semáforo. A sombra que faz a foice desliza:
+   cheia = sombra fora do disco; nova = sombra cobrindo tudo. */
+function mesaLua(estado){
+  var dx = estado === "pode" ? 92 : (estado === "calma" ? 19 : 2);
+  ["mzLuaSombra","mzLuaSombra2"].forEach(function(id){
+    var e = el(id); if (e) e.setAttribute("cx", dx);
+  });
+}
+
+/* AS VELAS encurtam conforme o mês anda. No dia 1º estão inteiras;
+   no fim do mês, tocos. É o único jeito de mostrar tempo sem número. */
+function mesaVelas(fracao){
+  var g = el("mzVelas"); if (!g) return;
+  var restante = Math.max(.18, 1 - fracao);
+  var corpos = g.querySelectorAll("g");
+  for (var i=0;i<corpos.length;i++){
+    corpos[i].setAttribute("transform",
+      corpos[i].getAttribute("transform").replace(/ scale\([^)]*\)/, "") +
+      " scale(1," + (0.35 + restante * 0.65).toFixed(3) + ")");
+  }
+}
+
+/* AS MOEDAS: uma pilha por faixa de mil reais, até seis. Caixa magro,
+   mesa com poucas moedas — sem dígito nenhum, e ele entende na hora. */
+function mesaMoedas(caixaCents){
+  var g = el("mzMoedas"); if (!g) return;
+  var quantas = Math.max(1, Math.min(6, Math.round(caixaCents / 100000)));
+  var grupos = g.children;
+  for (var i=0;i<grupos.length;i++) grupos[i].style.display = i < quantas ? "" : "none";
+}
+
+/* A LANTERNA só acende quando existe prazo correndo. */
+function mesaLanterna(acesa){
+  var g = el("mzLanterna"); if (!g) return;
+  g.style.opacity = acesa ? "1" : ".34";
+  var ch = g.querySelector(".mesa-chama");
+  if (ch) ch.style.display = acesa ? "" : "none";
+}
+
+function montarMesa(c){
+  var no = el("mzCartas"); if (!no) return;
+  var q = c.conselho || {};
+
+  el("mzDia").textContent = "a mesa de " + DADOS.hoje.slice(8,10) + "/" + DADOS.hoje.slice(5,7);
+  el("mzFrase").innerHTML = esc(q.txt || "");
+  el("mzBolaK").textContent = q.rot || "a mesa diz";
+  el("mzBolaV").textContent = q.val || "—";
+
+  mesaLua((c.semaforo || {}).e || "calma");
+  mesaVelas(c.diaDoMes && c.diasNoMes ? c.diaDoMes / c.diasNoMes : .5);
+  mesaMoedas(c.caixaCents);
+  mesaLanterna(q.rot === "A janela");
+
+  var giros = [-9,-5,-2,2,5,9], sobe = [6,2,0,0,2,6];
+  no.innerHTML = "";
+  ARCANOS.forEach(function(a,i){
+    var v = versoDoArcano(a.tela, c);
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mesa-carta";
+    b.style.setProperty("--g", giros[i]); b.style.setProperty("--dy", sobe[i]);
+    b.setAttribute("aria-label", a.nome + " — abrir " + TITULOS[a.tela]);
+    b.innerHTML =
+      '<span class="rn">' + a.rn + '</span>' +
+      '<span class="fg"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" ' +
+        'stroke-width="2.2" stroke-linejoin="round">' + a.fig + '</svg></span>' +
+      '<span class="vv">' + esc(v.v) + '</span>' +
+      '<span class="lg">' + esc(v.k) + '</span>' +
+      '<span class="nm">' + a.nome + '</span>';
+    b.addEventListener("click", function(){ fecharMesa(a.tela); });
+    no.appendChild(b);
+  });
+}
+
+/* Reabrir na mão é sempre permitido — o que acontece uma vez por dia é a
+   abertura AUTOMÁTICA. Cerimônia forçada duas vezes cansa; cerimônia
+   procurada, não. */
+/* Põe o texto exatamente sobre a esfera, lendo a matriz de tela do SVG.
+   Chamado ao abrir e a cada resize: o slice muda o recorte, e a bola
+   anda junto. */
+function ancorarTextoDaBola(){
+  var svg = document.querySelector(".mesa-fundo"),
+      alvo = el("mzAncora"), cx = el("mesaBola"), tela = el("mesaTela");
+  if (!svg || !alvo || !cx || !tela || tela.hidden) return;
+  var m = alvo.getScreenCTM ? alvo.getScreenCTM() : null;
+  if (!m){ cx.classList.add("posto"); return; }
+  var p = svg.createSVGPoint();
+  p.x = Number(alvo.getAttribute("cx")); p.y = Number(alvo.getAttribute("cy"));
+  var q = p.matrixTransform(m);
+  var caixa = tela.getBoundingClientRect();
+  cx.style.left = (q.x - caixa.left) + "px";
+  cx.style.top  = (q.y - caixa.top)  + "px";
+  cx.classList.add("posto");
+}
+
+function abrirMesa(){
+  if (!CALC || !CALC.dadosCarregados) return;
+  var t = el("mesaTela"); if (!t) return;
+  montarMesa(CALC);
+  t.hidden = false;
+  requestAnimationFrame(function(){
+    t.classList.add("on");
+    /* ⚠️ ANCORAR DUAS VEZES, E A SEGUNDA DEPOIS DA TRANSIÇÃO. A mesa abre
+       com transform:scale(1.03)→scale(1); ler o getScreenCTM no meio dessa
+       transição dá a posição ESCALADA, e o texto assentava ~19px fora do
+       centro da esfera. A primeira chamada evita o texto piscar longe; a
+       segunda, quando o scale já pousou, é a que vale. */
+    ancorarTextoDaBola();
+  });
+  t.addEventListener("transitionend", function ao(ev){
+    if (ev.propertyName !== "transform") return;
+    ancorarTextoDaBola();
+    t.removeEventListener("transitionend", ao);
+  });
+  setTimeout(ancorarTextoDaBola, 820);   // rede, caso o transitionend não venha
+  var b = el("mzEntrar"); if (b) b.focus();
+}
+
+window.addEventListener("resize", function(){
+  clearTimeout(window.__mzT);
+  window.__mzT = setTimeout(ancorarTextoDaBola, 120);
+});
+
+function fecharMesa(destino){
+  var t = el("mesaTela"); if (!t || t.hidden) return;
+  marcarMesaVista();
+  t.classList.add("saindo"); t.classList.remove("on");
+  setTimeout(function(){
+    t.hidden = true; t.classList.remove("saindo");
+    if (destino) irPara(destino);
+  }, 560);
+}
+
+/* ═══ O LEQUE ═════════════════════════════════════════════════════
+   A navegação é uma mão de cartas, montada a partir do mesmo ARCANOS que
+   desenha o baralho — uma fonte só, senão os dois saem de sincronia.
+
+   Geometria: cada carta recebe --pos (-3,-2,-1 à esquerda; 1,2,3 à direita).
+   O CSS faz rotate(pos × 7deg) com o pivô ABAIXO da carta, e o arco do leque
+   aparece sozinho. Nada de translateY calculado à mão.
+
+   Estado: carta virada PRA BAIXO = tela onde você não está. Virada PRA CIMA,
+   erguida e endireitada = onde você está agora. É a metáfora inteira do
+   painel resumida num gesto que qualquer pessoa que já jogou baralho entende. */
+/* O nome do arcano em jogo, ABAIXO da mão e dentro do véu. A versão de
+   antes punha ele ACIMA e ele caía dentro do conteúdo das telas. */
+function nomeDoLeque(tela){
+  var no = el("lequeNome"); if (!no) return;
+  var a = ARCANOS.filter(function(x){ return x.tela === tela; })[0];
+  no.textContent = a ? a.rn + " · " + a.nome : "";
+}
+
+function montarLeque(){
+  var mao = el("lequeMao"); if (!mao || mao.dataset.pronto) return;
+
+  function sigla(){
+    return '<svg viewBox="0 0 32 32" aria-hidden="true">' +
+      '<circle cx="16" cy="16" r="15" fill="var(--noite)"/>' +
+      '<circle cx="16" cy="16" r="12.4" fill="none" stroke="var(--ouro-luz)" stroke-width=".5" opacity=".55"/>' +
+      '<path d="M16 6.2 L17.5 12.3 L22.9 9.1 L19.7 14.5 L25.8 16 L19.7 17.5 L22.9 22.9 L17.5 19.7 L16 25.8 L14.5 19.7 L9.1 22.9 L12.3 17.5 L6.2 16 L12.3 14.5 L9.1 9.1 L14.5 12.3 Z" ' +
+        'fill="none" stroke="var(--ouro-luz)" stroke-width="1.1" stroke-linejoin="round"/>' +
+      '<circle cx="16" cy="16" r="1.3" fill="var(--ouro-luz)"/></svg>';
+  }
+
+  function carta(a, pos){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "carta-nav";
+    b.style.setProperty("--pos", pos);
+    b.style.setProperty("--lift", Math.abs(pos) * 4);
+    b.dataset.tela = a.tela;
+    b.setAttribute("aria-label", a.rn + " · " + a.nome + " — " + TITULOS[a.tela]);
+    b.title = a.nome + " · " + TITULOS[a.tela];
+    var fig = '<svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+              'stroke-linejoin="round">' + a.fig + '</svg>';
+    b.innerHTML =
+      '<span class="giro">' +
+        '<span class="lface dorso"><span class="rnn">' + a.rn + '</span>' + fig + '</span>' +
+        '<span class="lface frente-nav"><span class="rnn">' + a.rn + '</span>' + fig + '</span>' +
+      '</span>';
+    b.addEventListener("click", function(){ irPara(a.tela); });
+    return b;
+  }
+
+  /* posições em meio-passo (-2.5 … 2.5) pra o leque ficar simétrico em
+     torno do ponto de ancoragem, sem carta nenhuma no eixo central */
+  ARCANOS.forEach(function(a,i){ mao.appendChild(carta(a, i - 2.5)); });
+
+  /* ⭐ O SÍMBOLO NO VÉRTICE É O BOTÃO DA MESA — não de mais uma tela de
+     navegação. Antes ele abria "O baralho", que era uma terceira forma de
+     navegar além do leque e da mesa: o Michel clicou no que parecia home e
+     caiu num lugar que não era a tela inicial. Três caminhos pro mesmo
+     lugar é um a mais que o necessário; a tela do baralho foi removida. */
+  var sig = document.createElement("button");
+  sig.type = "button";
+  sig.className = "leque-sig";
+  sig.setAttribute("aria-label", "A mesa de hoje");
+  sig.title = "A mesa de hoje";
+  sig.innerHTML = sigla();
+  sig.addEventListener("click", function(){ abrirMesa(); });
+  mao.appendChild(sig);
+
+  mao.dataset.pronto = "1";
+}
+
+/* ⭐ A MÃO SE FECHA. Quando você saca uma carta, as vizinhas escorregam
+   NA DIREÇÃO dela pra fechar o vão — é o que a mão de verdade faz.
+
+   ⚠️ Eu fiz ao contrário na primeira tentativa: afastei as vizinhas pra
+   longe, e abriu um buraco feio entre a carta sacada e a seguinte (o VI
+   ficava sozinho no canto). Mão que perde uma carta se aperta, não se
+   espalha.
+
+   O movimento decai com a distância: a vizinha anda 6px, a seguinte 3px,
+   a mais longe 1px. Mão não reorganiza o baralho inteiro.             */
+function abrirBuracoNaMao(tela){
+  var cartas = document.querySelectorAll(".carta-nav");
+  var ativa = -1;
+  cartas.forEach(function(c,i){ if (c.dataset.tela === tela) ativa = i; });
+
+  cartas.forEach(function(c,i){
+    if (ativa < 0){ c.style.setProperty("--shift", 0); return; }
+    var d = i - ativa;
+    if (d === 0){ c.style.setProperty("--shift", 0); return; }
+    var forca = Math.abs(d) === 1 ? 6 : (Math.abs(d) === 2 ? 3 : 1);
+    c.style.setProperty("--shift", d < 0 ? forca : -forca);   // escorrega PARA a sacada
+  });
+}
+
 function renderHoje(){
   var c = CALC;
 
@@ -1313,7 +3221,13 @@ function renderHoje(){
   el("hPorque").innerHTML = sm.fala;
 
   // A régua da casa: dinheiro vira tempo, e tempo ele entende na hora.
+  renderTiragem(c);
+  renderEclipse(c);
+
   var dias = emDiasDeCasa(c.tetoDiaCents, c.casaDiaCents);
+  avisarLeituraVelha();
+  avisarSaldoEstimado();
+
   el("hCasa").textContent = c.casaDiaCents > 0
     ? "Sua casa custa " + C(c.casaDiaCents) + " por dia" + (dias ? " · o teto de hoje vale " + dias : "")
     : "";
@@ -1368,6 +3282,144 @@ function renderHoje(){
       "<td class='dim'>" + esc(l.cat) + "</td>" +
       "<td class='r'>" + C(l.cents) + "</td></tr>";
   }).join("") + "</tbody>";
+}
+
+/* A TIRAGEM DO DIA na tela. Sempre três cartas, sempre na mesma ordem —
+   é isso que deixa ele achar o número sem procurar. */
+function renderTiragem(c){
+  var no = el("hTiragem"); if (!no) return;
+  var prox = c.sel && c.sel.proxima ? c.sel.proxima : null;
+  var q = c.conselho || {};
+
+  function dias(isoStr){
+    return Math.round((D(isoStr) - D(DADOS.hoje)) / 86400000);
+  }
+  function quando(isoStr){
+    var n = dias(isoStr);
+    if (n <= 0) return "hoje";
+    if (n === 1) return "amanhã";
+    return "em " + n + " dias";
+  }
+
+  no.innerHTML =
+    '<div class="tira">' +
+      '<span class="rot">Onde você está</span>' +
+      '<span class="val">' + C(c.caixaCents) + '</span>' +
+      '<span class="txt">Todo o dinheiro que existe agora, em ' + DADOS.contas.length +
+        (DADOS.contas.length === 1 ? " conta" : " contas") + '. Sem promessa dentro.</span>' +
+    '</div>' +
+
+    '<div class="tira">' +
+      '<span class="rot">O que se aproxima</span>' +
+      (prox
+        ? '<span class="val">' + C(Math.abs(prox.cents)) + '</span>' +
+          '<span class="txt">' + esc(prox.desc) + '</span>' +
+          '<span class="sub">' + quando(prox.data) + ' · ' + prox.data.slice(8,10) + "/" + prox.data.slice(5,7) + '</span>'
+        : '<span class="val">nada</span>' +
+          '<span class="txt">Nenhuma conta em aberto no mês. Respira.</span>') +
+    '</div>' +
+
+    '<div class="tira conselho">' +
+      '<span class="rot">' + esc(q.rot || "O conselho de hoje") + '</span>' +
+      '<span class="val">' + esc(q.val || "—") + '</span>' +
+      '<span class="txt">' + esc(q.txt || "") + '</span>' +
+    '</div>';
+}
+
+/* O ECLIPSE na tela. Duas leituras possíveis, nunca uma bronca:
+   - a linha cruza o zero  → mostra QUANDO e QUANTO, com a régua da casa
+   - a linha nunca cruza   → diz isso, que é notícia boa e merece ser dita */
+/* Quando os números na tela não vieram do Organizze agora, isso tem que
+   estar escrito ANTES deles — não num selo discreto no canto. */
+function avisarLeituraVelha(){
+  var alvo = el("hEscopo"); if (!alvo || !alvo.parentNode) return;
+  var ja = el("faixaErro");
+  if (ESTADO.origem === "rede"){ if (ja) ja.remove(); return; }
+  var quando = DADOS.geradoEm
+    ? new Date(DADOS.geradoEm).toLocaleString("pt-BR",
+        {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
+    : "data desconhecida";
+  var motivo = ESTADO.erroRede || (ESTADO.origem === "demo"
+    ? "o painel está rodando com o retrato de demonstração"
+    : "a leitura ainda não foi feita nesta sessão");
+  var n = ja || document.createElement("div");
+  n.className = "faixa-erro"; n.id = "faixaErro";
+  n.innerHTML = '<span>⚠</span><span><b>Estes números não vieram do Organizze agora.</b> ' +
+    esc(motivo) + '.<span class="q">retrato guardado em ' + esc(quando) +
+    ' · toque em Atualizar pra tentar de novo</span></span>';
+  if (!ja) alvo.parentNode.insertBefore(n, alvo);
+}
+
+/* Aviso honesto: o painel diz de onde tirou o caixa. */
+function avisarSaldoEstimado(){
+  /* ⚠️ ISTO JÁ FICOU ABAIXO DA DOBRA. Eu inseria o aviso depois do bloco
+     da faixa, e o Michel nunca chegou a vê-lo — pedi print dele duas vezes
+     e as duas ele mandou a tela sem o aviso, porque estava fora do quadro.
+     Aviso sobre um número tem que vir ANTES do número. */
+  var alvo = el("hEscopo");
+  if (!alvo || !alvo.parentNode) return;
+  var ja = el("avisoSaldo");
+  if (DADOS.saldoOrigem !== "somado"){ if (ja) ja.remove(); return; }
+  if (ja) return;
+  var n = document.createElement("div");
+  n.className = "aviso-saldo"; n.id = "avisoSaldo";
+  /* E o aviso mostra a CONTA DA CONTA: conta por conta, com o valor que o
+     painel somou. É a única linha da tela que o Michel consegue comparar,
+     olho no olho, com a tela de saldos do app — e é ela que aponta o dedo
+     pra conta errada quando o total não bate. */
+  var linhas = (DADOS.auditoria || []).map(function(a){
+    return '<div style="display:flex;justify-content:space-between;gap:10px">' +
+             '<span>' + esc(a.nome) + '</span>' +
+             '<b style="font-family:var(--fonte-num)">' + C(a.saldoCents) + '</b>' +
+           '</div>';
+  }).join("");
+  n.innerHTML = '<span>⚠</span><span>Este caixa é <b>somado</b> pelo painel a partir de ' +
+    esc(DADOS.inicioSaldo || "") + ', porque a API do Organizze não devolve saldo de conta. ' +
+    'Compare conta por conta com o app — se alguma não bater, é ela que está furada.' +
+    (linhas ? '<div style="margin-top:6px;font-size:11.5px;opacity:.85">' + linhas + '</div>' : '') +
+    '</span>';
+  alvo.parentNode.insertBefore(n, alvo.nextSibling);
+}
+
+function renderEclipse(c){
+  var e = c.eclipse, bloco = el("hEclipseBloco"), node = el("hEclipse");
+  if (!e) { bloco.hidden = true; return; }
+  bloco.hidden = false;
+
+  function dataCurta(isoStr){ return isoStr.slice(8,10) + "/" + isoStr.slice(5,7); }
+  function emQuantos(n){
+    if (n <= 0) return "hoje";
+    if (n === 1) return "amanhã";
+    return "em " + n + " dias";
+  }
+
+  if (!e.negativa){
+    node.className = "eclipse azul";
+    node.innerHTML =
+      '<svg class="disco" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">' +
+        '<circle cx="23" cy="23" r="17" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/>' +
+        '<circle cx="23" cy="23" r="17" fill="currentColor" opacity=".22"/></svg>' +
+      '<div class="txt">' +
+        '<span class="rot">Sem eclipse no horizonte</span>' +
+        '<span class="val">' + C(e.fundoCents) + '</span>' +
+        '<span class="quando">É o ponto mais baixo dos próximos 3 meses, em <b>' +
+          dataCurta(e.fundoEm) + '</b> — e ele não cruza o zero.</span>' +
+      '</div>';
+    return;
+  }
+
+  node.className = "eclipse";
+  node.innerHTML =
+    '<svg class="disco" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">' +
+      '<circle cx="23" cy="23" r="17" fill="var(--noite, #191C33)"/>' +
+      '<circle cx="23" cy="23" r="17" fill="none" stroke="var(--ouro)" stroke-width="1.8"/></svg>' +
+    '<div class="txt">' +
+      '<span class="rot">Eclipse · ' + dataCurta(e.fundoEm) + '</span>' +
+      '<span class="val">' + C(e.fundoCents) + '</span>' +
+      '<span class="quando">A linha cruza o zero <b>' + emQuantos(e.diasAteCruzar) +
+        '</b>, em ' + dataCurta(e.cruzaEm) + ', e chega no fundo ' + emQuantos(e.diasAteFundo) + '.</span>' +
+      (e.casa ? '<span class="casa">o buraco vale ' + e.casa + '</span>' : "") +
+    '</div>';
 }
 
 function fmtFolego(dias){
@@ -1487,14 +3539,16 @@ function gerarInsights(c){
 /* ----------------------------------------------------------- TELA: MÊS ---- */
 function renderMes(){
   var c = CALC;
-  el("mEscopo").textContent = "Projeção dos próximos 30 dias a partir de hoje · cartões em tempo real";
+  el("mEscopo").textContent = "Projeção dos próximos 3 meses a partir de hoje · cartões em tempo real";
 
   faixa(el("mFaixa"), [
     { rot:"Entra no mês",  val:C(c.rendaMesCents),  pe:"já sem transferência interna" },
     { rot:"Sai no mês",    val:C(c.gastoMesCents),  pe:"até hoje" },
     { rot:"Fatura em aberto", val:C(c.faturaAbertaCents), pe:c.faturasAbertas.length + " faturas" },
-    { rot:"Menor saldo previsto", val:C(menorSaldo().saldo), pe:menorSaldo().data.slice(8,10)+"/"+menorSaldo().data.slice(5,7),
-      cls: menorSaldo().saldo < 0 ? "ruim" : "" }
+    /* mesmo número do Eclipse da tela Hoje — uma verdade só, nascida em recalcular() */
+    { rot:"Menor saldo previsto", val:C(c.eclipse.fundoCents),
+      pe:c.eclipse.fundoEm.slice(8,10)+"/"+c.eclipse.fundoEm.slice(5,7),
+      cls: c.eclipse.fundoCents < 0 ? "ruim" : "" }
   ]);
 
   linhaSaldo(el("mLinha"), c.serieSaldo);
@@ -1538,7 +3592,10 @@ function menorSaldo(){
 }
 
 function linhaSaldo(svg, pts){
-  var W=720, H=240, L=52, R=8, T=14, B=26;
+  /* ⚠️ T=14 era apertado demais: os rótulos dos marcos ficam em T-6 e
+     batiam no primeiro rótulo do eixo Y ("11,6k" colado em "−43,9k").
+     T=30 dá a faixa que os marcos precisam pra respirar. */
+  var W=720, H=252, L=54, R=10, T=30, B=26;
   var pw = W-L-R, ph = H-T-B;
   var vals = pts.map(function(p){ return p.saldo; });
   var min = Math.min.apply(null, vals.concat([0])), max = Math.max.apply(null, vals.concat([0]));
@@ -1560,9 +3617,60 @@ function linhaSaldo(svg, pts){
              " L" + x(0).toFixed(1) + " " + y(Math.max(0,min)).toFixed(1) + " Z";
   h += '<path class="area" d="'+area+'"/><path class="linha" d="'+d+'"/>';
 
+  /* ── A EFEMÉRIDE ────────────────────────────────────────────
+     Antes isto era só uma linha com um ponto no fundo do poço. Faltava o
+     que uma efeméride tem e um gráfico de fintech não tem: os MARCOS. Sem
+     eles, o Michel via a linha cair e não sabia no que ela tropeçou. */
+
+  /* Os maiores movimentos viram marcos com haste e rótulo.
+     ⚠️ O ESPAÇAMENTO NÃO É FRESCURA. Na primeira versão eu peguei os cinco
+     maiores e pronto — dois deles caíram a três dias de distância e os rótulos
+     se sobrepuseram, virando "−2,5k5,8k" em cima do gráfico. Rótulo ilegível é
+     pior que rótulo nenhum, porque o olho tenta ler e trava.
+     Regra: dos candidatos ordenados por tamanho, só entra quem estiver a pelo
+     menos GAP px do que já entrou. O maior sempre ganha o lugar. */
+  var GAP = 52;
+  var marcos = [];
+  pts.map(function(p,i){ return {p:p, i:i}; })
+    .filter(function(o){ return Math.abs(o.p.evento||0) > 0; })
+    .sort(function(a,b){ return Math.abs(b.p.evento) - Math.abs(a.p.evento); })
+    .forEach(function(o){
+      if (marcos.length >= 5) return;
+      var xo = x(o.i);
+      var perto = marcos.some(function(m){ return Math.abs(x(m.i) - xo) < GAP; });
+      if (!perto) marcos.push(o);
+    });
+  marcos.sort(function(a,b){ return a.i - b.i; });
+
+  var mnIdx = pts.reduce(function(a,b,i){ return b.saldo < pts[a].saldo ? i : a; }, 0);
+  marcos = marcos.filter(function(o){ return Math.abs(x(o.i) - x(mnIdx)) >= GAP; });
+
+  marcos.forEach(function(o){
+    var xx = x(o.i), yy = y(o.p.saldo);
+    h += '<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+yy.toFixed(1)+
+         '" stroke="var(--ouro)" stroke-width="1" opacity=".38"/>';
+    h += '<circle cx="'+xx.toFixed(1)+'" cy="'+yy.toFixed(1)+'" r="3" fill="var(--ouro)"/>';
+    h += '<text class="eixo" x="'+xx.toFixed(1)+'" y="'+(T-9)+'" text-anchor="middle" fill="var(--ouro-txt)">'+
+         Ck(o.p.evento)+'</text>';
+  });
+
+  /* O ECLIPSE — disco escuro com anel de ouro, não bolinha vermelha.
+     É o mesmo símbolo da tela Hoje: o mesmo fato merece a mesma cara
+     nos dois lugares, senão ele precisa aprender duas linguagens. */
   var mn = pts.reduce(function(a,b,i){ return b.saldo < a.p.saldo ? {p:b,i:i} : a; }, {p:pts[0],i:0});
-  h += '<circle class="pt" cx="'+x(mn.i).toFixed(1)+'" cy="'+y(mn.p.saldo).toFixed(1)+'" r="4.5" style="fill:var(--crit)"/>';
-  h += '<text x="'+x(mn.i).toFixed(1)+'" y="'+(y(mn.p.saldo)-12).toFixed(1)+'" text-anchor="middle" fill="var(--crit)" font-size="11" font-weight="600">'+Ck(mn.p.saldo)+"</text>";
+  var ex = x(mn.i), ey = y(mn.p.saldo), neg = mn.p.saldo < 0;
+  if (neg){
+    h += '<circle cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="7" fill="var(--noite)"/>';
+    h += '<circle cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="7" fill="none" stroke="var(--ouro)" stroke-width="1.8"/>';
+  } else {
+    h += '<circle class="pt" cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="4.5" style="fill:var(--good)"/>';
+  }
+  h += '<text x="'+ex.toFixed(1)+'" y="'+(ey+ (ey < T+40 ? 24 : -14)).toFixed(1)+
+       '" text-anchor="middle" fill="'+(neg ? "var(--crit)" : "var(--good)")+
+       '" font-size="11" font-weight="600">'+Ck(mn.p.saldo)+"</text>";
+  if (neg)
+    h += '<text class="eixo" x="'+ex.toFixed(1)+'" y="'+(ey + (ey < T+40 ? 37 : -27)).toFixed(1)+
+         '" text-anchor="middle" fill="var(--ouro-txt)">eclipse '+mn.p.data.slice(8,10)+"/"+mn.p.data.slice(5,7)+"</text>";
 
   for (var i=0;i<pts.length;i+=5){
     h += '<text class="eixo" x="'+x(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+pts[i].data.slice(8,10)+"/"+pts[i].data.slice(5,7)+"</text>";
@@ -1842,11 +3950,79 @@ var TITULOS = { hoje:"Hoje", pagar:"A pagar", mes:"Fluxo do mês", onde:"Onde va
                 comp:"Comprometido", saude:"Saúde financeira" };
 // O seletor de período só faz sentido nas telas que olham um mês específico.
 var USA_PERIODO = { pagar:1, onde:1 };
+/* ═══ A VIRADA ════════════════════════════════════════════════════
+   Roda em Web Animations API, não em CSS. Dois motivos, os dois pagos com
+   erro no protótipo:
+     1. um `@media (prefers-reduced-motion){*{animation-duration:.01ms}}`
+        zerava a virada inteira em qualquer aparelho com "reduzir movimento";
+     2. `animation: virar var(--dur) ...` cai calado se a variável não
+        resolver, e sobra só o transform estático — que é "pular pro verso".
+   Aqui a duração é número e o easing é por trecho: a mão puxa, acelera na
+   passagem pela quina, e freia pra pousar.                                 */
+
+/* 1150ms era o ritmo do protótipo, onde a virada era o espetáculo. Aqui ela
+   é transição: o Michel viu e disse "lento demais". 560ms mantém o gesto de
+   mão — pega, gira, pousa — sem fazer ninguém esperar pra navegar. */
+var DUR_VIRADA = 560;
+var virando = false;
+
+function quadrosDaVirada(){
+  return [
+    { transform:"rotateY(0deg) translateY(0px) translateZ(0px) rotateZ(0deg) scale(1)",
+      easing:"cubic-bezier(.34,.9,.42,1)" },
+    { offset:.14, transform:"rotateY(-8deg) translateY(-12px) translateZ(42px) rotateZ(-1.8deg) scale(1.05)",
+      easing:"cubic-bezier(.5,0,.72,.45)" },
+    { offset:.34, transform:"rotateY(36deg) translateY(-22px) translateZ(70px) rotateZ(-2.4deg) scale(1.08)",
+      easing:"linear" },
+    { offset:.54, transform:"rotateY(92deg) translateY(-25px) translateZ(78px) rotateZ(-1.2deg) scale(1.09)",
+      easing:"linear" },
+    { offset:.74, transform:"rotateY(148deg) translateY(-19px) translateZ(60px) rotateZ(1deg) scale(1.06)",
+      easing:"cubic-bezier(.25,.6,.3,1)" },
+    { offset:.9,  transform:"rotateY(174deg) translateY(-7px) translateZ(24px) rotateZ(1.2deg) scale(1.02)",
+      easing:"cubic-bezier(.2,.7,.3,1)" },
+    { transform:"rotateY(180deg) translateY(0px) translateZ(0px) rotateZ(0deg) scale(1)" }
+  ];
+}
+
+var SOMBRA_DA_VIRADA = [
+  { opacity:.55, transform:"scale(1)", filter:"blur(9px)" },
+  { offset:.5, opacity:.16, transform:"scale(1.26) translateY(10px)", filter:"blur(18px)" },
+  { opacity:.55, transform:"scale(1)", filter:"blur(9px)" }
+];
+
+function virarCarta(slot, destino){
+  if (virando) return;                       // uma mão de cada vez
+  var carta = slot.querySelector(".flip"), sombra = slot.querySelector(".sombra");
+  if (!carta || !carta.animate) { irPara(destino); return; }   // navegador sem WAAPI: vai direto
+
+  virando = true;
+  slot.classList.add("mexendo");
+  var acende = setTimeout(function(){ slot.classList.add("quina"); }, DUR_VIRADA * .40);
+  var apaga  = setTimeout(function(){ slot.classList.remove("quina"); }, DUR_VIRADA * .70);
+
+  var anim = carta.animate(quadrosDaVirada(), { duration:DUR_VIRADA, fill:"forwards", easing:"linear" });
+  if (sombra && sombra.animate) sombra.animate(SOMBRA_DA_VIRADA, { duration:DUR_VIRADA, easing:"linear" });
+
+  var acabou = false;
+  function terminar(){
+    if (acabou) return; acabou = true;
+    clearTimeout(acende); clearTimeout(apaga);
+    slot.classList.remove("quina","mexendo");
+    try { anim.cancel(); } catch(e){}
+    virando = false;
+    irPara(destino);
+  }
+  if (anim.finished && anim.finished.then) anim.finished.then(terminar).catch(terminar);
+  else anim.onfinish = terminar;
+  setTimeout(terminar, DUR_VIRADA + 250);    // rede de segurança
+}
+
 function irPara(t){
   ESTADO.tela = t;
   document.querySelectorAll(".tela").forEach(function(s){ s.hidden = (s.id !== "tela-" + t); });
   document.querySelectorAll("#nav button").forEach(function(b){
     b.setAttribute("aria-current", String(b.dataset.tela === t)); });
+  nomeDoLeque(t);
   el("tituloTela").textContent = TITULOS[t];
   el("periodo").style.display = USA_PERIODO[t] ? "inline-flex" : "none";
   window.scrollTo({ top:0, behavior:"instant" });
@@ -1868,11 +4044,42 @@ el("pLimpar").addEventListener("click", function(ev){
   ev.stopPropagation();
   gravarPagos(CALC.sel.ym, []); render();
 });
+function temaDoAparelho(){
+  try { return matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro"; }
+  catch(e){ return "escuro"; }
+}
+function rotularTema(){
+  var b = el("btnTema"); if (!b) return;
+  // o rótulo é o DESTINO, nunca o estado atual
+  var vaiPra = document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro";
+  b.querySelector(".tema-ico").textContent = vaiPra === "claro" ? "☀" : "☾";
+  b.querySelector(".tema-txt").textContent = vaiPra === "claro" ? "Claro" : "Escuro";
+  b.title = "Mudar para o tema " + vaiPra;
+  b.setAttribute("aria-label", b.title);
+}
+function aplicarTema(){
+  var salvo = null;
+  try { salvo = localStorage.getItem("painel:tema"); } catch(e){}
+  document.documentElement.dataset.tema = salvo || temaDoAparelho();
+  rotularTema();
+}
+try {
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", function(){
+    var salvo = null;
+    try { salvo = localStorage.getItem("painel:tema"); } catch(e){}
+    if (salvo) return;                       // escolha do dono vence o sistema
+    document.documentElement.dataset.tema = temaDoAparelho();
+    rotularTema();
+    if (CALC.dadosCarregados) render();
+  });
+} catch(e){}
+
 el("btnSync").addEventListener("click", sincronizar);
 el("btnTema").addEventListener("click", function(){
   var novo = document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro";
   document.documentElement.dataset.tema = novo;
   try { localStorage.setItem("painel:tema", novo); } catch(e){}
+  rotularTema();
   if (CALC.dadosCarregados) render();
 });
 el("btnSair").addEventListener("click", function(){ location.href = "/logout"; });
@@ -1893,8 +4100,33 @@ document.addEventListener("keydown", function(ev){
 
 /* --------------------------------------------------------------- boot ----- */
 try {
-  var tm = localStorage.getItem("painel:tema"); if (tm) document.documentElement.dataset.tema = tm;
+  /* ⚠️ O PADRÃO NÃO É MEU, É DO APARELHO. Antes o tema vinha travado no
+     HTML e só mudava se alguém achasse o botão. Agora: escolha salva manda;
+     sem escolha salva, vale o modo do sistema. E se ele trocar o modo do
+     celular com o painel aberto, o painel acompanha — a menos que ele já
+     tenha escolhido à mão, porque escolha do dono vence preferência do SO. */
+  aplicarTema();
+  montarLeque();
   var tl = localStorage.getItem("painel:tela"); if (tl && TITULOS[tl]) irPara(tl);
+  else irPara("hoje");
+
+  var bEnt = el("mzEntrar");
+  if (bEnt) bEnt.addEventListener("click", function(){ fecharMesa(null); });
+  document.addEventListener("keydown", function(ev){
+    if (ev.key === "Escape") fecharMesa(null);
+  });
+  // clicar na marca abre a mesa: é ela a tela inicial do painel
+  var marca = document.querySelector(".marca");
+  if (marca){
+    marca.style.cursor = "pointer";
+    marca.setAttribute("role","button");
+    marca.setAttribute("tabindex","0");
+    marca.setAttribute("aria-label","A mesa de hoje");
+    marca.addEventListener("click", function(){ abrirMesa(); });
+    marca.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); abrirMesa(); }
+    });
+  }
   var mm = localStorage.getItem("painel:mes"); if (mm) ESTADO.mes = mm;
 } catch(e){}
 iniciar();

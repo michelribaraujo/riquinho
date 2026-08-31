@@ -48,6 +48,28 @@ export default {
 
     const autenticado = await conferir(req, env);
 
+    /* Diagnóstico: devolve /accounts como a API mandou, sem tocar em nada.
+       Existe porque eu já errei TRÊS nomes de campo tentando adivinhar onde
+       o Organizze guarda o saldo. É a conta do próprio Michel, no Worker
+       dele, atrás da mesma senha — e some quando o saldo estiver certo. */
+    if (p === "/api/bruto") {
+      if (!autenticado) return json({ erro: "sessao" }, 401);
+      try {
+        const d = await montarDados(env);
+        return json({
+          inicio: d.inicioSaldo, hoje: d.hoje,
+          fatiasLidas: d.fatiasLidas, lancLidos: d.lancLidos,
+          camposConta: d.camposConta,
+          camposLanc: d.camposLanc, camposLancCartao: d.camposLancCartao,
+          fatias: d.contagemFatia,
+          accounts: await org(env, "/accounts"),
+          auditoria: d.auditoria
+        });
+      } catch (e) {
+        return json({ erro: String(e && e.message || e) }, 502);
+      }
+    }
+
     if (p === "/api/bootstrap") {
       if (!autenticado) return json({ erro: "sessao" }, 401);
       try {
@@ -121,11 +143,38 @@ function ultimoDia(ano, mes) { return new Date(ano, mes, 0).getDate(); }
    Sai daqui o objeto DADOS. Nenhuma conta de negócio acontece aqui além de
    agregação bruta: o recalcular() do painel é quem define os números derivados.
    ============================================================================ */
+
+/* ⚠️⚠️ O BUG QUE ENVENENOU O PAINEL INTEIRO ⚠️⚠️
+   Durante semanas isto foi `t.account_type === "CreditCard"`. A API REST do
+   Organizze NÃO DEVOLVE `account_type` em /transactions — ela devolve
+   `credit_card_id`. Ou seja: o teste era SEMPRE FALSO e toda compra de
+   cartão passou a contar como movimento de conta bancária.
+
+   Quatro sintomas, uma causa (26/08/2026):
+     · caixa de -R$ 31.372,77 quando o real era +R$ 2.941,23 — cada compra
+       de cartão era descontada do saldo do banco
+     · "A pagar" com 73 contas e R$ 27.646,25 num mês cujo gasto real foi
+       R$ 12.625,57 — cada compra virava uma conta a pagar, e a fatura era
+       contada por cima
+     · gasto do mês inflado na mesma proporção
+     · a lista de parcelas SEMPRE VAZIA, porque o teste invertido descartava
+       justamente as compras parceladas
+
+   Nunca mais testar tipo de conta por um campo que a API não documenta.
+   Cartão se reconhece pelo credit_card_id.                               */
+function ehCartao(t) {
+  return !!(t.credit_card_id || t.credit_card_invoice_id || t.account_type === "CreditCard");
+}
+
 async function montarDados(env) {
   const hoje = new Date();
   const hojeISO = iso(hoje);
   const ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
-  const inicio = env.INICIO || "2024-01-01";
+  /* ⚠️ O INÍCIO NÃO PODE SER UM CHUTE. A soma do saldo só fecha se ela
+     começar exatamente onde os dados começam. Por isso o início nasce da
+     conta mais antiga do próprio Organizze (inclusive as arquivadas, que
+     guardam o histórico), arredondado pro primeiro dia do mês. */
+  let inicio = env.INICIO || null;
 
   const [contasRaw, cartoesRaw, categoriasRaw] = await Promise.all([
     org(env, "/accounts"),
@@ -133,14 +182,76 @@ async function montarDados(env) {
     org(env, "/categories")
   ]);
 
+  if (!inicio) {
+    const nascimentos = (contasRaw || []).map(a => String(a.created_at || "").slice(0, 10))
+                                         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+    inicio = nascimentos.length ? nascimentos[0].slice(0, 7) + "-01" : "2024-01-01";
+  }
+
   const cartoes = cartoesRaw.filter(c => !c.archived).map(c => ({
     id: c.id, nome: c.name, fechamento: c.closing_day, vencimento: c.due_day,
     limiteCents: c.limit_cents || null
   }));
 
-  // Faturas de cada cartão (ano corrente). saldo != 0 => em aberto de verdade.
+  // Faturas de cada cartão (ano corrente). O SALDO só se decide depois de ler
+  // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
   const faturas = [];
+  /* Transações: do INICIO até 6 meses à frente, UM MÊS POR VEZ.
+     ⚠️ A doc do Organizze diz, com todas as letras, que "a paginação de
+     movimentações é feita com os parâmetros start_date e end_date". Ou seja:
+     não existe page/per_page — quem tem que estreitar a janela é quem pergunta.
+     Fatias de 3 meses chegavam a 650 lançamentos e voltavam incompletas em
+     silêncio: o painel somava um pedaço do extrato e anunciava caixa de
+     -R$ 31 mil onde o Organizze mostrava +R$ 3 mil.
+     Um mês por vez é a única janela que o Organizze garante inteira. */
+  const fim = iso(addMeses(hoje, 6));
+  /* O Worker tem teto de subrequisições. Um mês por fatia é o ideal; se o
+     histórico for longo demais pra caber, o passo abre pra 2 meses — sempre
+     nos meses antigos, que são os mais magros. */
+  const mesesTotais = (Number(fim.slice(0, 4)) - Number(inicio.slice(0, 4))) * 12
+                    + (Number(fim.slice(5, 7)) - Number(inicio.slice(5, 7))) + 1;
+  const passo = mesesTotais > 40 ? 2 : 1;
+  const fatias = [];
+  let cursor = new Date(inicio + "T12:00:00");
+  while (iso(cursor) < fim) {
+    const prox = addMeses(cursor, passo);
+    fatias.push([iso(cursor), iso(prox) < fim ? iso(prox) : fim]);
+    cursor = prox;
+  }
+  const contagemFatia = [];
+  const vistos = new Set();
+  const lanc = [];
+  for (let i = 0; i < fatias.length; i += 6) {          // 6 meses por vez: rápido sem estourar o limite de subrequests
+    const lote = fatias.slice(i, i + 6);
+    const blocos = await Promise.all(lote.map(([a, b]) => org(env, `/transactions?start_date=${a}&end_date=${b}`)));
+    blocos.forEach((bloco, k) => {
+      contagemFatia.push({ de: lote[k][0], ate: lote[k][1], n: (bloco || []).length });
+      (bloco || []).forEach(t => { if (!vistos.has(t.id)) { vistos.add(t.id); lanc.push(t); } });
+    });
+  }
+
+  /* ⚠️⚠️ FATURA PAGA NÃO É FATURA EM ABERTO.
+     O painel anunciava R$ 29.639,29 de fatura e R$ 18.130,14 a pagar em
+     agosto. A fatura de agosto do MercadoPago (R$ 10.358,02) JÁ ESTAVA PAGA —
+     o próprio Organizze mostrava só os R$ 7.772,12 do Inter. O erro: o painel
+     lia `balance_cents` e nunca perguntava se alguém tinha pagado.
+
+     E `balance_cents` NÃO zera quando a fatura é quitada (a de agosto continua
+     -R$ 10.358,02 mesmo paga). Então o pagamento se descobre por dois caminhos,
+     e vale o maior: o campo `payment_amount_cents` da própria fatura, e os
+     lançamentos que apontam pra ela via `paid_credit_card_invoice_id`.
+     ⚠️ O id da fatura se repete entre cartões (o 319 existe nos dois) — casar
+     só pelo id mistura as faturas. Tem que casar id E cartão. */
+  const pagoPorFatura = {};
+  for (const t of lanc) {
+    const cc = t.paid_credit_card_id, inv = t.paid_credit_card_invoice_id;
+    if (!inv) continue;
+    const k = (cc || "?") + ":" + inv;
+    pagoPorFatura[k] = (pagoPorFatura[k] || 0) + Math.abs(t.amount_cents || 0);
+  }
+  const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id);
+
   faturasPorCartao.forEach((lista, i) => {
     const c = cartoes[i];
     (lista || []).forEach(f => {
@@ -148,34 +259,26 @@ async function montarDados(env) {
       if (!venc) return;
       const fecha = String(f.closing_date || "").slice(0, 10);
       const abre  = String(f.starting_date || "").slice(0, 10);
+      const devido = Math.abs(f.amount_cents || 0);
+      const pago = Math.max(Math.abs(f.payment_amount_cents || 0),
+                            pagoPorFatura[c.id + ":" + f.id] || 0);
+      const aberto = Math.max(0, devido - pago);
       let status;
       if (abre && abre > hojeISO) status = "futura";
       else if (fecha && hojeISO <= fecha) status = "emFormacao";
-      else if (venc < hojeISO && f.balance_cents !== 0) status = "vencida";
+      else if (aberto === 0) status = "paga";
+      else if (venc < hojeISO) status = "vencida";
       else status = "fechada";
       faturas.push({
         cartaoId: c.id, mes: venc.slice(0, 7), vencimento: venc,
-        valorCents: f.amount_cents || 0, saldoCents: f.balance_cents || 0, status
+        valorCents: f.amount_cents || 0,
+        // saldo = o que AINDA se deve, com sinal de despesa. Fatura paga vira 0
+        // e some sozinha de todo filtro que já existia no painel.
+        saldoCents: -aberto,
+        pagoCents: pago, status
       });
     });
   });
-
-  // Transações: do INICIO até 6 meses à frente, em fatias de 3 meses.
-  const fim = iso(addMeses(hoje, 6));
-  const fatias = [];
-  let cursor = new Date(inicio + "T12:00:00");
-  while (iso(cursor) < fim) {
-    const prox = addMeses(cursor, 3);
-    fatias.push([iso(cursor), iso(prox) < fim ? iso(prox) : fim]);
-    cursor = prox;
-  }
-  const blocos = [];
-  for (const [a, b] of fatias) {
-    blocos.push(await org(env, `/transactions?start_date=${a}&end_date=${b}`));
-  }
-  const vistos = new Set();
-  const lanc = [];
-  blocos.flat().forEach(t => { if (!vistos.has(t.id)) { vistos.add(t.id); lanc.push(t); } });
 
   const catNome = {}; (categoriasRaw || []).forEach(c => { catNome[c.id] = c.name; });
   const catPai  = {}; (categoriasRaw || []).forEach(c => { catPai[c.id] = c.parent_id; });
@@ -185,23 +288,95 @@ async function montarDados(env) {
 
   // Saldo por conta = soma dos lançamentos PAGOS em conta bancária, desde INICIO.
   // Se a API algum dia passar a devolver saldo pronto, ele ganha prioridade.
-  const contas = contasRaw.filter(a => !a.archived).map(a => {
-    let s = (a.balance_cents !== undefined && a.balance_cents !== null) ? a.balance_cents : null;
+  // ⚠️ A API DO ORGANIZZE NÃO DEVOLVE SALDO DE CONTA. Quando ela devolver,
+  // o valor dela manda. Enquanto não devolve, o saldo é SOMADO a partir de
+  // INICIO — e essa soma só fecha se INICIO for a data em que a conta do
+  // Organizze realmente começou. Com INICIO errado o saldo nasce torto e
+  // nunca se corrige: em 26/08/2026 o painel anunciou caixa de
+  // -R$ 31.372,77 quando o real era +R$ 2.941,23.
+  //
+  // Por isso o painel agora sabe DE ONDE veio o saldo e avisa quando ele é
+  // estimado. Número que o painel não pode conferir não pode ser dito com
+  // a mesma cara de um que ele confere.
+  /* ⚠️⚠️ CONTA-RADAR NÃO É DINHEIRO.
+     O Michel: "ele fala que tenho -31k em conta (o que é mentira) e cita 5
+     contas, sendo que só tenho MercadoPago, Nubank e Inter."
+
+     As outras duas são manuais: `cofrinhos` (que TEM dinheiro de verdade) e
+     `Receitas e despesas previstas` — que NÃO tem saldo nenhum. Ela existe
+     só pra estacionar previsão, e é regra do próprio Michel: marcar algo
+     como pago ali sem mover dinheiro deixa ela negativa. Meses disso viraram
+     um buraco de dezenas de milhares que o painel somava no caixa.
+
+     O Organizze mostra R$ 0,00 pra ela. O painel tem que ignorá-la. */
+  const EH_RADAR = a => /receitas?\s+e\s+despesas?\s+previst/i.test(a.name || "");
+
+  /* ⚠️ CONTA ARQUIVADA NÃO É VIDA ATUAL. O Organizze guarda o histórico dela
+     (a `Conta inicial`, o Nubank antigo, a carteira do iFood) e a API devolve
+     esses lançamentos junto com os de hoje. Eles não podem virar gasto do mês
+     nem conta a pagar. A conta-radar (`Receitas e despesas previstas`) FICA:
+     ela não é dinheiro, mas é justamente onde moram as previsões. */
+  const idsContaViva = new Set(contasRaw.filter(a => !a.archived).map(a => a.id));
+  const idsCartaoVivo = new Set(cartoes.map(c => c.id));
+  const DA_CASA = t => ehCartao(t)
+    ? idsCartaoVivo.has(t.credit_card_id)
+    : idsContaViva.has(t.account_id);
+
+  let saldoOrigem = "api";
+  const contas = contasRaw.filter(a => !a.archived && !EH_RADAR(a)).map(a => {
+    /* ⚠️ O NOME DO CAMPO É O PROBLEMA. Eu testei balance_cents,
+       balance_in_cents e current_balance_cents — e nenhum bateu, então o
+       painel caía na soma e mostrava caixa de -R$ 31 mil.
+       Agora `balance` também entra. Regra de desempate: no Organizze todo
+       dinheiro é INTEIRO em centavos (amount_cents). Se vier com casa
+       decimal, é reais e precisa de ×100. */
+    let bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents,
+                 a.saldo_cents, a.current_balance].find(v => typeof v === "number");
+    if (bruto === undefined && typeof a.balance === "number") {
+      bruto = Number.isInteger(a.balance) ? a.balance : Math.round(a.balance * 100);
+    }
+    let s = (bruto !== undefined) ? bruto : null;
     if (s === null) {
+      saldoOrigem = "somado";
       s = 0;
       for (const t of lanc) {
-        if (t.account_type === "CreditCard") continue;
+        if (ehCartao(t)) continue;
         if (t.account_id === a.id && t.paid) s += t.amount_cents;
       }
     }
     return { id: a.id, nome: a.name, manual: a.type === "other", saldoCents: s };
   });
 
+  /* AUDITORIA — o painel tem que conseguir provar o próprio caixa.
+     Enquanto o saldo for somado (a API não devolve saldo pronto), cada conta
+     carrega de onde veio o número dela: quantos lançamentos entraram, quantos
+     ficaram de fora e quais foram os maiores. Sem isso, um caixa errado é
+     indistinguível de um caixa certo — e já custou dias. */
+  const auditoria = contas.map(c => {
+    let n = 0, nPagos = 0, nCartao = 0;
+    const pesos = [];
+    for (const t of lanc) {
+      if (t.account_id !== c.id) continue;
+      n++;
+      if (ehCartao(t)) { nCartao++; continue; }
+      if (!t.paid) continue;
+      nPagos++;
+      pesos.push({ d: String(t.date).slice(0, 10), desc: t.description, cents: t.amount_cents });
+    }
+    pesos.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents));
+    return { id: c.id, nome: c.nome, saldoCents: c.saldoCents, n, nPagos, nCartao, maiores: pesos.slice(0, 6) };
+  });
+
   // Contas a pagar / a receber ainda em aberto (não pagas), em conta bancária.
-  const limite = iso(addMeses(hoje, 2));
+  // ⚠️ ESTE LIMITE E O HORIZONTE DE projetar() ANDAM JUNTOS. Se aqui for menor,
+  // o fim da linha do saldo fica artificialmente otimista: as faturas continuam
+  // aparecendo (vêm de outra consulta, 6 meses), mas as contas de Pix/boleto somem.
+  // projetar() olha 92 dias — então aqui são 3 meses. Mexeu num, mexe no outro.
+  const limite = iso(addMeses(hoje, 3));
   const aPagar = [], aReceber = [];
   for (const t of lanc) {
-    if (t.paid || t.account_type === "CreditCard") continue;
+    if (t.paid || ehCartao(t)) continue;
+    if (!DA_CASA(t)) continue;
     const d = String(t.date).slice(0, 10);
     if (d > limite) continue;
     if (INTERNA(t)) continue;
@@ -249,6 +424,7 @@ async function montarDados(env) {
     for (const t of todos) {
       const d = String(t.date).slice(0, 10);
       if (d < d0 || d > d1) continue;
+      if (!DA_CASA(t)) continue;
       const raiz = nomeRaiz(t.category_id);
       if (t.amount_cents > 0) {
         bruta += t.amount_cents;
@@ -256,7 +432,15 @@ async function montarDados(env) {
         continue;
       }
       if (INTERNA(t)) continue;
-      if (raiz && raiz.toLowerCase().indexOf("fatura") === 0) continue; // pagamento de fatura não é gasto novo
+      /* ⚠️ PAGAMENTO DE FATURA NÃO É GASTO NOVO — a compra já foi contada
+         quando aconteceu. Antes isto dependia da categoria começar com
+         "Fatura", e bastava um pagamento categorizado como "Dívidas e
+         empréstimos" pra furar: em agosto/2026 essa categoria apareceu com
+         R$ 12.184,50 quando o real era R$ 1.885,65, e o gasto do mês inteiro
+         subiu de R$ 22.631,59 pra R$ 32.930,44. Categoria é escolha do Michel;
+         o vínculo com a fatura é fato da API. */
+      if (PAGA_FATURA(t)) continue;
+      if (raiz && raiz.toLowerCase().indexOf("fatura") === 0) continue;
       const v = Math.abs(t.amount_cents);
       mapa[raiz] = (mapa[raiz] || 0) + v;
       const sub = catNome[t.category_id] || "—";
@@ -302,7 +486,7 @@ async function montarDados(env) {
   // Parcelas de cartão ainda a vencer (compras com total_installments > 1)
   const parcMapa = {};
   for (const t of lanc) {
-    if (t.account_type !== "CreditCard" || !(t.total_installments > 1)) continue;
+    if (!ehCartao(t) || !(t.total_installments > 1)) continue;
     if (temTag(t, "Dívida")) continue; // já contada como dívida — não contar duas vezes
     const d = String(t.date).slice(0, 10);
     if (d < hojeISO) continue;
@@ -331,6 +515,16 @@ async function montarDados(env) {
     origem: "rede",
     geradoEm: new Date().toISOString(),
     hoje: hojeISO,
+    // o painel precisa saber se pode confiar no caixa que está mostrando
+    saldoOrigem, inicioSaldo: inicio,
+    /* Só os NOMES dos campos que /accounts devolveu — nenhum valor. É o
+       suficiente pra descobrir onde o Organizze guarda o saldo, e some da
+       tela assim que saldoOrigem virar "api". */
+    camposConta: Object.keys(contasRaw[0] || {}),
+    auditoria,
+    fatiasLidas: contagemFatia.length, lancLidos: lanc.length, contagemFatia,
+    camposLanc: Object.keys(lanc.find(t => !ehCartao(t)) || {}),
+    camposLancCartao: Object.keys(lanc.find(t => ehCartao(t)) || {}),
     mesRef: { ano, mes },
     contas, cartoes, faturas, aPagar, aReceber,
     gastoMes: { totalCents: gasto.totalCents, categorias: gasto.categorias },

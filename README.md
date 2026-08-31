@@ -55,7 +55,10 @@ e cole o `painel-worker.js` novo em **Edit code → Deploy** no dashboard do Clo
 - ⛔ Fatura/dívida `congelada` não entra nos compromissos do mês.
 - ⛔ O check da tela "A pagar" é local — nunca escreve `paid` no Organizze.
 - Os sinais são fases da lua: cheia (pode) · minguante (vai com calma) · nova (melhor não).
-- Todo número em fonte tabular; a serifa (Cormorant Garamond) é só título e voz.
+- Todo número em fonte tabular (IBM Plex Mono); a serifa (Cormorant Garamond) é só título e voz.
+- ⛔ O horizonte de `projetar()` é de **92 dias**. Já foi 31 e isso escondia o fundo do poço:
+  o painel anunciava o menor saldo em 14/09 porque o DAS + PGFN de 30/09 caíam fora da janela.
+  Não encurtar sem conferir onde cai o eclipse.
 
 ---
 
