@@ -200,6 +200,21 @@ async function montarDados(env) {
   const CARTAO_CONGELADO = nome =>
     CONGELADOS.some(x => String(nome || "").toLowerCase().includes(x));
 
+  /* ⚠️ CARTÃO MANUAL É RADAR, NÃO É DINHEIRO.
+     Michel, 31/08/2026: "o cartão manual só serve pra você controlar no
+     Organizze o que está previsto para vir. Não deve refletir em relatório."
+     Ele lança ali o que sabe que vem (a Claro, um ajuste de estorno) antes de
+     o Open Finance trazer. Quando o banco traz, a cobrança aparece no cartão
+     de verdade — e contar os dois é contar a mesma compra duas vezes.
+     Então a fatura do cartão manual é PREVISÃO: alimenta o que vem por aí,
+     nunca as contas do mês nem a fatura em aberto.
+     A marca é o nome, que é como ele mesmo nomeia: "MercadoPago (manual)".
+     Dá pra ajustar sem código pela variável CARTOES_PREVISAO. */
+  const PREVISAO_NOMES = String(env.CARTOES_PREVISAO || "(manual)")
+    .split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+  const CARTAO_PREVISAO = nome =>
+    PREVISAO_NOMES.some(x => String(nome || "").toLowerCase().includes(x));
+
   // Faturas de cada cartão (ano corrente). O SALDO só se decide depois de ler
   // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
@@ -348,7 +363,7 @@ async function montarDados(env) {
         // saldo = o que AINDA se deve, com sinal de despesa. Fatura paga vira 0
         // e some sozinha de todo filtro que já existia no painel.
         saldoCents: -aberto,
-        pagoCents: pago, status, congelada
+        pagoCents: pago, status, congelada, previsao: CARTAO_PREVISAO(c.nome)
       });
     });
   });
@@ -2811,7 +2826,7 @@ function recalcular(){
   // ⛔ Fatura CONGELADA (acordo/renegociação já decidida) não é conta do mês.
   //    Ela existe, aparece em Dívidas, mas não disputa o caixa de setembro.
   var fatAbertas = DADOS.faturas.filter(function(f){
-    return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada; });
+    return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao; });
   c.faturasCongeladas = DADOS.faturas.filter(function(f){ return f.congelada; });
   c.faturasAbertas = fatAbertas;
   c.faturaAbertaCents = soma(fatAbertas, function(f){ return Math.abs(f.saldoCents); });
@@ -2959,7 +2974,7 @@ function conselhoDoDia(c){
   //    O gatilho certo não é "o mês fechou?" — é "essa fatura cabe no caixa?".
   var maior = null;
   (DADOS.faturas || []).forEach(function(f){
-    if (f.status !== "emFormacao" || f.congelada) return;
+    if (f.status !== "emFormacao" || f.congelada || f.previsao) return;
     if (!maior || Math.abs(f.saldoCents) > Math.abs(maior.saldoCents)) maior = f;
   });
   if (maior){
@@ -3146,7 +3161,7 @@ function calcularMes(y, c){
   var contas = DADOS.aPagar.filter(function(p){ return p.data.slice(0,7) === y; })
     .map(function(p){ return { data:p.data, desc:p.desc, cents:p.cents, grupo:p.grupo, nota:p.nota }; });
   var fats = DADOS.faturas.filter(function(f){
-      return !f.congelada && f.saldoCents !== 0 && f.vencimento.slice(0,7) === y; })
+      return !f.congelada && !f.previsao && f.saldoCents !== 0 && f.vencimento.slice(0,7) === y; })
     .map(function(f){
       var cart = DADOS.cartoes.filter(function(x){ return x.id === f.cartaoId; })[0];
       return { data:f.vencimento, desc:"Fatura " + (cart ? cart.nome : "cartão"),
@@ -3249,7 +3264,7 @@ function projetar(){
   DADOS.aPagar.forEach(function(p){ por(p.data, p.cents); });
   DADOS.aReceber.forEach(function(r){ por(r.data, r.cents); });
   DADOS.faturas.forEach(function(f){
-    if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada) por(f.vencimento, f.saldoCents);
+    if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao) por(f.vencimento, f.saldoCents);
   });
   /* ⚠️ HORIZONTE — já foi 31 dias, e isso ESCONDIA o fundo do poço.
      Em 20/08/2026 o painel anunciava o menor saldo em 14/09 (−R$ 10.735,23)
@@ -3620,7 +3635,7 @@ function versoDoArcano(tela, c){
 
   if (tela === "comp"){
     var aberto = soma((DADOS.faturas||[]).filter(function(f){
-      return !f.congelada && f.saldoCents !== 0 && f.status !== "futura";
+      return !f.congelada && !f.previsao && f.saldoCents !== 0 && f.status !== "futura";
     }), function(f){ return Math.abs(f.saldoCents); });
     return { k:"Faturas em aberto", v:C(aberto), tom: aberto > c.caixaCents ? "ruim" : "",
       d:"O que já foi comprado e ainda vai chegar como conta.", b:"parcelas e dívidas" };
@@ -4236,7 +4251,7 @@ function renderMes(){
   el("mCartoes").innerHTML = DADOS.cartoes.map(function(cart){
     var fs = DADOS.faturas.filter(function(f){ return f.cartaoId === cart.id; });
     var congelado = fs.some(function(f){ return f.congelada; });
-    var aberta = fs.filter(function(f){ return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada; });
+    var aberta = fs.filter(function(f){ return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao; });
     var total = soma(aberta, function(f){ return Math.abs(f.saldoCents); });
     var venc = aberta.length ? aberta.sort(function(a,b){ return a.vencimento < b.vencimento ? -1 : 1; })[0] : null;
     var melhorDia = (cart.fechamento % 31) + 1;

@@ -55,6 +55,8 @@ eq("MercadoPago ago/26 marcada como paga",         fat(2261913, "2026-08-08").st
 eq("Inter ago/26 continua vencida",                fat(2261580, "2026-08-12").saldoCents, -777212);
 eq("MercadoPago set/26 em formação",               fat(2261913, "2026-09-08").saldoCents, -1189937);
 eq("MercadoPago manual set/26",                    fat(2470295, "2026-09-08").saldoCents, -100367);
+eq("cartão manual é previsão, não conta",          fat(2470295, "2026-09-08").previsao, true);
+eq("cartão de verdade não é previsão",          !!fat(2261913, "2026-09-08").previsao, false);
 
 console.log("\nCARTÃO ABANDONADO — dívida, não conta do mês");
 eq("Inter ago/26 congelada",        fat(2261580, "2026-08-12").congelada, true);

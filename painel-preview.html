@@ -2346,7 +2346,7 @@ function recalcular(){
   // ⛔ Fatura CONGELADA (acordo/renegociação já decidida) não é conta do mês.
   //    Ela existe, aparece em Dívidas, mas não disputa o caixa de setembro.
   var fatAbertas = DADOS.faturas.filter(function(f){
-    return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada; });
+    return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao; });
   c.faturasCongeladas = DADOS.faturas.filter(function(f){ return f.congelada; });
   c.faturasAbertas = fatAbertas;
   c.faturaAbertaCents = soma(fatAbertas, function(f){ return Math.abs(f.saldoCents); });
@@ -2494,7 +2494,7 @@ function conselhoDoDia(c){
   //    O gatilho certo não é "o mês fechou?" — é "essa fatura cabe no caixa?".
   var maior = null;
   (DADOS.faturas || []).forEach(function(f){
-    if (f.status !== "emFormacao" || f.congelada) return;
+    if (f.status !== "emFormacao" || f.congelada || f.previsao) return;
     if (!maior || Math.abs(f.saldoCents) > Math.abs(maior.saldoCents)) maior = f;
   });
   if (maior){
@@ -2681,7 +2681,7 @@ function calcularMes(y, c){
   var contas = DADOS.aPagar.filter(function(p){ return p.data.slice(0,7) === y; })
     .map(function(p){ return { data:p.data, desc:p.desc, cents:p.cents, grupo:p.grupo, nota:p.nota }; });
   var fats = DADOS.faturas.filter(function(f){
-      return !f.congelada && f.saldoCents !== 0 && f.vencimento.slice(0,7) === y; })
+      return !f.congelada && !f.previsao && f.saldoCents !== 0 && f.vencimento.slice(0,7) === y; })
     .map(function(f){
       var cart = DADOS.cartoes.filter(function(x){ return x.id === f.cartaoId; })[0];
       return { data:f.vencimento, desc:"Fatura " + (cart ? cart.nome : "cartão"),
@@ -2784,7 +2784,7 @@ function projetar(){
   DADOS.aPagar.forEach(function(p){ por(p.data, p.cents); });
   DADOS.aReceber.forEach(function(r){ por(r.data, r.cents); });
   DADOS.faturas.forEach(function(f){
-    if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada) por(f.vencimento, f.saldoCents);
+    if (f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao) por(f.vencimento, f.saldoCents);
   });
   /* ⚠️ HORIZONTE — já foi 31 dias, e isso ESCONDIA o fundo do poço.
      Em 20/08/2026 o painel anunciava o menor saldo em 14/09 (−R$ 10.735,23)
@@ -3155,7 +3155,7 @@ function versoDoArcano(tela, c){
 
   if (tela === "comp"){
     var aberto = soma((DADOS.faturas||[]).filter(function(f){
-      return !f.congelada && f.saldoCents !== 0 && f.status !== "futura";
+      return !f.congelada && !f.previsao && f.saldoCents !== 0 && f.status !== "futura";
     }), function(f){ return Math.abs(f.saldoCents); });
     return { k:"Faturas em aberto", v:C(aberto), tom: aberto > c.caixaCents ? "ruim" : "",
       d:"O que já foi comprado e ainda vai chegar como conta.", b:"parcelas e dívidas" };
@@ -3771,7 +3771,7 @@ function renderMes(){
   el("mCartoes").innerHTML = DADOS.cartoes.map(function(cart){
     var fs = DADOS.faturas.filter(function(f){ return f.cartaoId === cart.id; });
     var congelado = fs.some(function(f){ return f.congelada; });
-    var aberta = fs.filter(function(f){ return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada; });
+    var aberta = fs.filter(function(f){ return f.saldoCents !== 0 && f.status !== "futura" && !f.congelada && !f.previsao; });
     var total = soma(aberta, function(f){ return Math.abs(f.saldoCents); });
     var venc = aberta.length ? aberta.sort(function(a,b){ return a.vencimento < b.vencimento ? -1 : 1; })[0] : null;
     var melhorDia = (cart.fechamento % 31) + 1;

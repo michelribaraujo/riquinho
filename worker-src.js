@@ -200,6 +200,21 @@ async function montarDados(env) {
   const CARTAO_CONGELADO = nome =>
     CONGELADOS.some(x => String(nome || "").toLowerCase().includes(x));
 
+  /* ⚠️ CARTÃO MANUAL É RADAR, NÃO É DINHEIRO.
+     Michel, 31/08/2026: "o cartão manual só serve pra você controlar no
+     Organizze o que está previsto para vir. Não deve refletir em relatório."
+     Ele lança ali o que sabe que vem (a Claro, um ajuste de estorno) antes de
+     o Open Finance trazer. Quando o banco traz, a cobrança aparece no cartão
+     de verdade — e contar os dois é contar a mesma compra duas vezes.
+     Então a fatura do cartão manual é PREVISÃO: alimenta o que vem por aí,
+     nunca as contas do mês nem a fatura em aberto.
+     A marca é o nome, que é como ele mesmo nomeia: "MercadoPago (manual)".
+     Dá pra ajustar sem código pela variável CARTOES_PREVISAO. */
+  const PREVISAO_NOMES = String(env.CARTOES_PREVISAO || "(manual)")
+    .split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+  const CARTAO_PREVISAO = nome =>
+    PREVISAO_NOMES.some(x => String(nome || "").toLowerCase().includes(x));
+
   // Faturas de cada cartão (ano corrente). O SALDO só se decide depois de ler
   // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
@@ -348,7 +363,7 @@ async function montarDados(env) {
         // saldo = o que AINDA se deve, com sinal de despesa. Fatura paga vira 0
         // e some sozinha de todo filtro que já existia no painel.
         saldoCents: -aberto,
-        pagoCents: pago, status, congelada
+        pagoCents: pago, status, congelada, previsao: CARTAO_PREVISAO(c.nome)
       });
     });
   });
