@@ -56,6 +56,12 @@ eq("Inter ago/26 continua vencida",                fat(2261580, "2026-08-12").sa
 eq("MercadoPago set/26 em formação",               fat(2261913, "2026-09-08").saldoCents, -1189937);
 eq("MercadoPago manual set/26",                    fat(2470295, "2026-09-08").saldoCents, -100367);
 
+console.log("\nCARTÃO ABANDONADO — dívida, não conta do mês");
+eq("Inter ago/26 congelada",        fat(2261580, "2026-08-12").congelada, true);
+eq("Inter set/26 também congelada", fat(2261580, "2026-09-12").congelada, true);
+eq("MercadoPago set/26 NÃO congelada", !!fat(2261913, "2026-09-08").congelada, false);
+eq("fatura paga não vira congelada",   !!fat(2261913, "2026-08-08").congelada, false);
+
 console.log("\nCONTA-RADAR e ARQUIVADAS não são dinheiro");
 eq("nenhuma conta arquivada no caixa", D.contas.filter(c => c.nome === "Conta inicial").length, 0);
 eq("conta-radar fora do caixa",        D.contas.filter(c => /previst/i.test(c.nome)).length, 0);

@@ -193,6 +193,13 @@ async function montarDados(env) {
     limiteCents: c.limit_cents || null
   }));
 
+  /* Cartões que o Michel decidiu não pagar. Vem da variável CARTOES_CONGELADOS
+     (nomes separados por vírgula) e, sem ela, do que ele já me disse. */
+  const CONGELADOS = String(env.CARTOES_CONGELADOS || "Cartão Inter")
+    .split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+  const CARTAO_CONGELADO = nome =>
+    CONGELADOS.some(x => String(nome || "").toLowerCase().includes(x));
+
   // Faturas de cada cartão (ano corrente). O SALDO só se decide depois de ler
   // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
@@ -317,6 +324,18 @@ async function montarDados(env) {
          sempre. Pagamento que cobre a maior parte da fatura quita a fatura,
          que é como o Organizze e o Michel a enxergam. */
       const aberto = (pago > 0 && pago >= devido * 0.85) ? 0 : Math.max(0, devido - pago);
+      /* ⛔ CARTÃO ABANDONADO NÃO TEM CONTA DO MÊS.
+         Michel, 31/08/2026, com todas as letras: "eu te disse que iria ignorar
+         e não vou pagar a fatura Inter. Vai ficar com nome sujo e futuramente
+         renegocio." Ele já tinha me dito antes e eu segui cobrando — o painel
+         mostrava R$ 7.772,12 como conta de agosto e fazia o mês parecer
+         impagável, escondendo as contas que ele REALMENTE vai pagar.
+
+         Fatura de cartão abandonado é DÍVIDA: continua existindo, aparece em
+         Dívidas, acumula rotativo — mas não disputa o caixa do mês. Quando ele
+         renegociar, é só tirar o cartão desta lista (ou mudar a variável
+         CARTOES_CONGELADOS no Cloudflare, sem tocar em código). */
+      const congelada = CARTAO_CONGELADO(c.nome) && aberto > 0;
       let status;
       if (abre && abre > hojeISO) status = "futura";
       else if (fecha && hojeISO <= fecha) status = "emFormacao";
@@ -329,7 +348,7 @@ async function montarDados(env) {
         // saldo = o que AINDA se deve, com sinal de despesa. Fatura paga vira 0
         // e some sozinha de todo filtro que já existia no painel.
         saldoCents: -aberto,
-        pagoCents: pago, status
+        pagoCents: pago, status, congelada
       });
     });
   });

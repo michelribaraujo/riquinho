@@ -2406,8 +2406,12 @@ function recalcular(){
   /* DÍVIDA TOTAL — separada em correndo × congelada (acordo fechado, sem parcela rodando).
      ⛔ saldo total de dívida NUNCA é pagamento do mês. Nunca compare com o caixa. */
   c.dividaCorrendoCents  = soma(divCorrendo, function(d){ return d.saldoCents; });
+  /* ⭐ A FATURA ABANDONADA CONTINUA EXISTINDO. Ela sai das contas do mês —
+     o Michel decidiu não pagá-la — mas some do painel seria mentira boa.
+     Ela entra aqui, na dívida congelada, junto com os acordos fechados. */
   c.dividaCongeladaCents = soma(DADOS.dividas.filter(function(d){ return d.estado === "acordo"; }),
-                                function(d){ return d.saldoCents; });
+                                function(d){ return d.saldoCents; })
+                         + soma(c.faturasCongeladas, function(f){ return Math.abs(f.saldoCents); });
 
   /* RENDA DE REFERÊNCIA = o que se espera receber por mês daqui pra frente.
      É EXPECTATIVA, nunca extrato — só serve pros meses SEGUINTES. */
