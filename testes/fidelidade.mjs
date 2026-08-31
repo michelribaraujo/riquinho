@@ -71,9 +71,13 @@ console.log("\nGASTO DO MÊS — pagamento de fatura e transferência não são 
 /* o gasto do mês é a compra no cartão (R$ 2.614,26 de aluguel) e MAIS NADA:
    o pagamento da fatura de R$ 10.043,72 é a mesma compra chegando pela
    segunda vez, e contá-lo dobrava o mês inteiro. */
-eq("gasto do mês = só a compra, sem o pagamento da fatura", D.gastoMes.totalCents, 261426);
+eq("gasto do mês = as compras do cartão, sem o pagamento da fatura", D.gastoMes.totalCents, 261426 + 118166);
 eq("transferência interna fora da renda", D.rendaMesCents, 0);
 eq("conta arquivada fora do gasto", D.gastoMes.categorias.filter(c => c.nome === "Dívidas e empréstimos").length, 0);
+
+console.log("\nRECORRENTE — uma cobrança única não vira mensalidade");
+const figma = (D.recorrente.assinaturas || []).find(a => a.nome === "FIGMA") || {};
+eq("Figma vale a mensalidade, não o pico", figma.cents, 10537);
 
 console.log("\nA PAGAR — previsão da conta-radar entra, compra de cartão não");
 eq("aluguel de setembro previsto", (D.aPagar.find(p => p.desc === "Aluguel") || {}).cents, -253812);

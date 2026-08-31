@@ -538,6 +538,38 @@ async function montarDados(env) {
     else if (temTag(t, "Despesa Varíavel")) { recorrente.variaveis.push({ nome, cents: v }); jaVi.add(nome); }
   }
 
+  /* ⚠️⚠️ UMA COBRANÇA NÃO É UMA ASSINATURA.
+     O valor de cada recorrente vinha do PRIMEIRO lançamento encontrado na
+     janela do mês seguinte. Bastou o Figma cobrar R$ 1.181,66 uma vez (uso de
+     IA, que o Michel está contestando) pra essa cobrança virar mensalidade:
+     "Ferramentas" apareceu com 915% da média e as assinaturas somaram
+     R$ 3.317,36/mês, R$ 39.808,32/ano. Nada disso vai acontecer de novo.
+
+     Agora o valor de um recorrente é a MEDIANA das últimas quatro cobranças
+     com o mesmo nome. Mediana ignora o pico sem precisar julgá-lo — e um pico
+     é exatamente o que uma cobrança única é. Preço que sobe de verdade (o
+     Claude subiu pro MAX) leva um ou dois meses pra assentar na mediana: é o
+     preço de não confundir susto com conta fixa, e é o lado certo pra errar. */
+  (function mediana() {
+    const hist = {};
+    for (const t of lanc) {
+      if (t.amount_cents >= 0) continue;
+      const nome = String(t.description || "").trim();
+      if (!nome) continue;
+      (hist[nome] = hist[nome] || []).push({ d: String(t.date).slice(0, 10), v: Math.abs(t.amount_cents) });
+    }
+    const ajustar = item => {
+      const h = (hist[item.nome] || []).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 4).map(x => x.v);
+      if (h.length < 3) return;                       // pouca história: mantém o que veio
+      h.sort((a, b) => a - b);
+      const meio = Math.floor(h.length / 2);
+      item.cents = h.length % 2 ? h[meio] : Math.round((h[meio - 1] + h[meio]) / 2);
+    };
+    recorrente.assinaturas.forEach(ajustar);
+    recorrente.fixas.forEach(ajustar);
+    recorrente.variaveis.forEach(ajustar);
+  })();
+
   // Dívidas: lançamentos com a tag "Dívida" ainda em aberto, agrupados por descrição-base.
   const dividasMapa = {};
   for (const t of lanc) {

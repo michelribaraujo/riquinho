@@ -25,7 +25,8 @@ export const categories = [
   { id: 3, name: "Moradia",             parent_id: null },
   { id: 4, name: "Aluguel",             parent_id: 3 },
   { id: 5, name: "Dívidas e empréstimos", parent_id: null },
-  { id: 6, name: "Salário",             parent_id: null }
+  { id: 6, name: "Salário",             parent_id: null },
+  { id: 7, name: "Ferramentas",         parent_id: null }
 ];
 
 /* faturas: amount_cents e balance_cents como a API devolve — e
@@ -71,6 +72,14 @@ export const transactions = [
     amount_cents: 830000, account_id: 10017755, category_id: 6, tags: [] },
   { id: 3231311721, description: "Ajuda de custo — EXPECTATIVA", date: "2026-11-05", paid: false,
     amount_cents: 15000, account_id: 10017755, category_id: 6, tags: [] },
+  /* Figma: quatro cobranças da mensalidade e UMA cobrança extra de uso de IA
+     (a que o Michel está contestando). A recorrente é R$ 105,37, nunca a de
+     R$ 1.181,66 — e é isso que o teste cobra. */
+  { id: 500001, description: "FIGMA", date: "2026-05-21", paid: true, amount_cents: -10537, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 316, category_id: 7, tags: [{ name: "Ass. Essencial" }] },
+  { id: 500002, description: "FIGMA", date: "2026-06-21", paid: true, amount_cents: -10537, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 317, category_id: 7, tags: [{ name: "Ass. Essencial" }] },
+  { id: 500003, description: "FIGMA", date: "2026-07-21", paid: true, amount_cents: -10537, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 319, category_id: 7, tags: [{ name: "Ass. Essencial" }] },
+  { id: 500004, description: "FIGMA", date: "2026-08-21", paid: true, amount_cents: -118166, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 320, category_id: 7, tags: [{ name: "Ass. Essencial" }] },
+  { id: 500005, description: "FIGMA", date: "2026-09-21", paid: false, amount_cents: -10537, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 321, category_id: 7, tags: [{ name: "Ass. Essencial" }] },
   // lançamento de conta ARQUIVADA: existe na API, não é vida atual
   { id: 999001, description: "Coisa velha da Conta inicial", date: "2026-08-10", paid: true,
     amount_cents: -5000000, account_id: 8116851, category_id: 5, tags: [] }
