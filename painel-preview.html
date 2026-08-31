@@ -510,25 +510,12 @@ svg.g{display:block;width:100%;overflow:visible}
 }
 .faixa-erro b{color:var(--ink);font-weight:600}
 .faixa-erro .q{font-family:var(--fonte-num);font-size:11.5px;color:var(--ink3);display:block;margin-top:3px}
-/* ⚠️ ISTO ERA UM BLOCO AMARELO COM CAIXA, BORDA E LISTA DE CONTAS.
-   Fazia sentido enquanto o caixa estava errado — era a prova de onde o número
-   vinha. Agora que ele bate com o Organizze, virou poluição: o Michel disse
-   "achando feio esse layout com esses blocos, além de poluírem". Aviso que
-   já cumpriu o papel vira nota de rodapé, não some — a procedência continua
-   auditável a um clique, só parou de gritar. */
-.proc{margin-top:4px;font-size:11.5px;color:var(--ink3);line-height:1.5}
-.proc button{background:none;border:0;padding:0;font:inherit;color:var(--ink3);
-  cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
-  text-underline-offset:3px}
-.proc button:hover{color:var(--ink2)}
-.proc-lista{margin-top:6px;display:grid;grid-template-columns:auto auto;
-  gap:2px 14px;justify-content:start;font-family:var(--fonte-num);font-size:11px}
-/* ⚠️ PELA SEGUNDA VEZ NESTE ARQUIVO: display:grid vence o [hidden] da folha
-   do navegador, e o bloco "escondido" fica na tela. Já aconteceu com a Mesa.
-   Toda classe que declara display precisa desta linha. */
-.proc-lista[hidden]{display:none}
-.proc-lista i{font-style:normal;color:var(--ink3)}
-.proc-lista b{font-weight:500;color:var(--ink2);text-align:right}
+.aviso-saldo{
+  display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:8px 10px;
+  border:1px solid var(--line2);border-left:2px solid var(--warn);border-radius:6px;
+  background:var(--warn-soft);font-size:12px;color:var(--ink2);line-height:1.45;
+}
+.aviso-saldo b{color:var(--ink);font-weight:600}
 .mesa-bola{position:absolute;left:0;top:0;transform:translate(-50%,-50%);
   text-align:center;width:min(152px,34vw);z-index:4;pointer-events:none;
   opacity:0;transition:opacity .3s ease}
@@ -3578,29 +3565,32 @@ function avisarLeituraVelha(){
 
 /* Aviso honesto: o painel diz de onde tirou o caixa. */
 function avisarSaldoEstimado(){
-  /* A API do Organizze não devolve saldo de conta — o painel soma. Isso
-     precisa continuar dito em algum lugar, porque um número somado é um
-     número com autor. Mas dizer uma vez, baixinho, embaixo. */
+  /* ⚠️ ISTO JÁ FICOU ABAIXO DA DOBRA. Eu inseria o aviso depois do bloco
+     da faixa, e o Michel nunca chegou a vê-lo — pedi print dele duas vezes
+     e as duas ele mandou a tela sem o aviso, porque estava fora do quadro.
+     Aviso sobre um número tem que vir ANTES do número. */
   var alvo = el("hEscopo");
   if (!alvo || !alvo.parentNode) return;
   var ja = el("avisoSaldo");
   if (DADOS.saldoOrigem !== "somado"){ if (ja) ja.remove(); return; }
   if (ja) return;
   var n = document.createElement("div");
-  n.className = "proc"; n.id = "avisoSaldo";
-  n.innerHTML = '<button type="button" aria-expanded="false">caixa somado pelo painel · ver conta por conta</button>' +
-                '<div class="proc-lista" hidden></div>';
-  var b = n.querySelector("button"), lista = n.querySelector(".proc-lista");
-  lista.innerHTML = (DADOS.auditoria || []).map(function(a){
-    return '<i>' + esc(a.nome) + '</i><b>' + C(a.saldoCents) + '</b>';
+  n.className = "aviso-saldo"; n.id = "avisoSaldo";
+  /* E o aviso mostra a CONTA DA CONTA: conta por conta, com o valor que o
+     painel somou. É a única linha da tela que o Michel consegue comparar,
+     olho no olho, com a tela de saldos do app — e é ela que aponta o dedo
+     pra conta errada quando o total não bate. */
+  var linhas = (DADOS.auditoria || []).map(function(a){
+    return '<div style="display:flex;justify-content:space-between;gap:10px">' +
+             '<span>' + esc(a.nome) + '</span>' +
+             '<b style="font-family:var(--fonte-num)">' + C(a.saldoCents) + '</b>' +
+           '</div>';
   }).join("");
-  b.addEventListener("click", function(){
-    var abre = lista.hidden;
-    lista.hidden = !abre;
-    b.setAttribute("aria-expanded", String(abre));
-    b.textContent = abre ? "caixa somado pelo painel · esconder"
-                         : "caixa somado pelo painel · ver conta por conta";
-  });
+  n.innerHTML = '<span>⚠</span><span>Este caixa é <b>somado</b> pelo painel a partir de ' +
+    esc(DADOS.inicioSaldo || "") + ', porque a API do Organizze não devolve saldo de conta. ' +
+    'Compare conta por conta com o app — se alguma não bater, é ela que está furada.' +
+    (linhas ? '<div style="margin-top:6px;font-size:11.5px;opacity:.85">' + linhas + '</div>' : '') +
+    '</span>';
   alvo.parentNode.insertBefore(n, alvo.nextSibling);
 }
 
