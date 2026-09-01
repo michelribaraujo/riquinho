@@ -6,6 +6,17 @@
    ============================================================================ */
 import * as F from "./fixture.mjs";
 
+/* ⚠️ O TESTE PRECISA DE UM "HOJE" FIXO. Sem isto ele passou no dia 31/08 e
+   quebrou sozinho no dia 1º: o worker usa new Date(), o mês corrente virou
+   setembro e o gasto do mês passou a ser outro. Teste que muda de resposta
+   com a virada do calendário não testa o código, testa o relógio. */
+const DataReal = Date;
+const AGORA = new DataReal(F.HOJE + "T12:00:00-03:00").getTime();
+globalThis.Date = class extends DataReal {
+  constructor(...a) { if (a.length === 0) super(AGORA); else super(...a); }
+  static now() { return AGORA; }
+};
+
 const env = { ORGANIZZE_EMAIL: "x@y.z", ORGANIZZE_TOKEN: "t", SENHA: "senha", SEGREDO: "seg" };
 
 const real = globalThis.fetch;
@@ -63,6 +74,13 @@ eq("Inter ago/26 congelada",        fat(2261580, "2026-08-12").congelada, true);
 eq("Inter set/26 também congelada", fat(2261580, "2026-09-12").congelada, true);
 eq("MercadoPago set/26 NÃO congelada", !!fat(2261913, "2026-09-08").congelada, false);
 eq("fatura paga não vira congelada",   !!fat(2261913, "2026-08-08").congelada, false);
+
+console.log("\nFATURAS VELHAS não ressuscitam");
+eq("dez/2025 continua quitada", fat(2261913, "2026-01-07").saldoCents, 0);
+eq("jul/2026 continua quitada", fat(2261913, "2026-07-07").saldoCents, 0);
+eq("total em aberto = set MP + ago Inter + set Inter + set manual",
+   D.faturas.filter(f => f.status !== "futura").reduce((s, f) => s + Math.abs(f.saldoCents), 0),
+   1189937 + 777212 + 5513 + 100367);
 
 console.log("\nCONTA-RADAR e ARQUIVADAS não são dinheiro");
 eq("nenhuma conta arquivada no caixa", D.contas.filter(c => c.nome === "Conta inicial").length, 0);

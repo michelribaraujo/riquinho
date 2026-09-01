@@ -74,16 +74,22 @@ function acusarColisoes(html) {
    `node --check` não pega: o arquivo continua válido, só que menor.
    Esta lista é o esqueleto do painel. Se um osso some, o build para.
    ══════════════════════════════════════════════════════════════════ */
+/* ⚠️ A MESA DA CIGANA SAIU DAQUI EM 01/09/2026, a pedido do Michel ("qro
+   matar essa tela inicial"). Os ossos dela (.mesa-tela, montarMesa,
+   abrirMesa, ancorarTextoDaBola, preserveAspectRatio) foram removidos desta
+   lista NO MESMO COMMIT em que a cena saiu do index.html. Osso de coisa que
+   não existe mais não protege nada — só faz o build reclamar de propósito e
+   ensina a ignorar o alarme. */
 const OSSOS = [
-  ".mesa-tela{", ".mesa-carta{", ".mesa-cartas{", ".mesa-bola{", ".mesa-topo{",
   ".leque{", ".leque-mao{", ".carta-nav{", ".giro{", ".dorso{", ".frente-nav{",
   ".eclipse{", ".tiragem{", ".tira{", ".selo{", ".carimbo{",
+  ".proc{", ".faixa-erro{", ".escopo{",
   "function recalcular(", "function renderHoje(", "function renderPagar(",
   "function renderMes(", "function renderOnde(", "function renderComp(",
   "function renderSaude(", "function renderSelo(", "function renderSeloMes(",
-  "function montarLeque(", "function montarMesa(", "function abrirMesa(",
-  "function calcularEclipse(", "function conselhoDoDia(", "function ancorarTextoDaBola(",
-  "backface-visibility", "preserveAspectRatio",
+  "function montarLeque(", "function avisarSaldoEstimado(",
+  "function calcularEclipse(", "function conselhoDoDia(",
+  "backface-visibility",
 ];
 function acusarAusencias(html) {
   const faltando = OSSOS.filter(o => !html.includes(o));

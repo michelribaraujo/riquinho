@@ -280,12 +280,27 @@ async function montarDados(env) {
      Então o vínculo se faz pelo que EXISTE: categoria raiz começando com
      "Fatura", em conta bancária. É convenção do próprio Michel e está no
      Organizze há meses. */
+  function diasEntre(a, b) {
+    return Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000);
+  }
   function chave(txt) {
     return String(txt || "").toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/cart(a|ã)o/g, "").replace(/[^a-z0-9]/g, "");
   }
-  const EH_PAGTO_FATURA = t => !ehCartao(t) && /^fatura\b/i.test(nomeRaiz(t.category_id) || "");
+  /* ⚠️ OLHAR A CATEGORIA CERTA. Testei só a categoria RAIZ e a correção não
+     pegou em produção: no Organizze do Michel, "Fatura Mercado Pago" NÃO é
+     categoria de topo — é SUBcategoria de "Dívidas e empréstimos" (163472211
+     sob 144288015). nomeRaiz() devolvia "Dívidas e empréstimos", que não
+     começa com "Fatura", e o pagamento seguia invisível. É a mesma raiz que
+     aparecia com R$ 12.184,50 em agosto contra R$ 1.885,65 reais: o pagamento
+     estava lá dentro o tempo todo. Agora vale a FOLHA ou a raiz — quem nomeia
+     a categoria é ele, e ele nomeou na folha. */
+  const CAT_FATURA = t => {
+    const folha = catNome[t.category_id] || "", raiz = nomeRaiz(t.category_id) || "";
+    return /^fatura\b/i.test(folha) ? folha : (/^fatura\b/i.test(raiz) ? raiz : "");
+  };
+  const EH_PAGTO_FATURA = t => !ehCartao(t) && !!CAT_FATURA(t);
   const PAGA_FATURA = t => !!(t.paid_credit_card_id || t.paid_credit_card_invoice_id) || EH_PAGTO_FATURA(t);
 
   /* Cada pagamento vai pro cartão cujo nome cabe dentro do nome da categoria
@@ -301,25 +316,39 @@ async function montarDados(env) {
     }
     if (EH_PAGTO_FATURA(t) && t.amount_cents < 0) {
       pagosSoltos.push({ data: String(t.date).slice(0, 10), cents: Math.abs(t.amount_cents),
-                         cat: chave(nomeRaiz(t.category_id)) });
+                         cat: chave(CAT_FATURA(t)) });
     }
   }
+  /* ⚠️ QUAL FATURA ESTE PAGAMENTO QUITA?
+     A primeira versão pegava a fatura ABERTA MAIS ANTIGA do cartão. Passou no
+     teste (o fixture só tinha faturas de agosto em diante) e errou feio no
+     painel dele: a API devolve o ANO INTEIRO, então "a mais antiga ainda
+     aberta" era a de dezembro/2025, e o pagamento de agosto foi quitar uma
+     fatura de oito meses atrás. A de agosto seguiu cobrando.
+
+     A regra certa é a que a vida usa: um pagamento quita a fatura que estava
+     vencendo QUANDO ELE FOI FEITO. Entre as que já tinham fechado na data e
+     ainda devem alguma coisa, vence a de valor mais PRÓXIMO do que foi pago —
+     e nunca uma que venceu há mais de 45 dias. */
   pagosSoltos.sort((a, b) => a.data < b.data ? -1 : 1);
   for (const p of pagosSoltos) {
-    let alvo = null;
+    let alvo = null, melhorDist = Infinity;
     for (let i = 0; i < cartoes.length; i++) {
       const c = cartoes[i], nome = chave(c.nome);
       if (!nome || !p.cat.includes(nome)) continue;
-      const lista = (faturasPorCartao[i] || [])
-        .filter(f => String(f.closing_date || "").slice(0, 10) <= p.data)
-        .filter(f => (pagoPorFatura[c.id + ":" + f.id] || 0) < Math.abs(f.amount_cents || 0))
-        .filter(f => Math.abs(f.amount_cents || 0) > 0)
-        .sort((a, b) => String(a.date) < String(b.date) ? -1 : 1);
-      if (lista.length && (!alvo || chave(c.nome).length > alvo.peso)) {
-        alvo = { k: c.id + ":" + lista[0].id, peso: nome.length };
+      for (const f of (faturasPorCartao[i] || [])) {
+        const fecha = String(f.closing_date || "").slice(0, 10);
+        const venc  = String(f.date || "").slice(0, 10);
+        if (!fecha || fecha > p.data) continue;                  // ainda nem tinha fechado
+        if (venc && diasEntre(venc, p.data) > 45) continue;      // fatura velha demais
+        const k = c.id + ":" + f.id;
+        const resta = Math.abs(f.balance_cents || 0) - (pagoPorFatura[k] || 0);
+        if (resta <= 0) continue;
+        const dist = Math.abs(resta - p.cents);
+        if (dist < melhorDist) { melhorDist = dist; alvo = k; }
       }
     }
-    if (alvo) pagoPorFatura[alvo.k] = (pagoPorFatura[alvo.k] || 0) + p.cents;
+    if (alvo) pagoPorFatura[alvo] = (pagoPorFatura[alvo] || 0) + p.cents;
   }
 
   faturasPorCartao.forEach((lista, i) => {
@@ -329,7 +358,11 @@ async function montarDados(env) {
       if (!venc) return;
       const fecha = String(f.closing_date || "").slice(0, 10);
       const abre  = String(f.starting_date || "").slice(0, 10);
-      const devido = Math.abs(f.amount_cents || 0);
+      /* ⚠️ O QUE SE DEVE É O SALDO, NÃO O VALOR DA FATURA. O Organizze zera
+         `balance_cents` quando a fatura é quitada de verdade e mantém
+         `amount_cents` como registro histórico. Usar o valor fazia TODA fatura
+         paga do ano voltar a aparecer como aberta. */
+      const devido = Math.abs(f.balance_cents || 0);
       const pago = Math.max(Math.abs(f.payment_amount_cents || 0),
                             pagoPorFatura[c.id + ":" + f.id] || 0);
       /* ⚠️ NÃO EXIGIR CENTAVO EXATO. A fatura de agosto do MercadoPago fechou

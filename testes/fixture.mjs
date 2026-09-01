@@ -20,7 +20,12 @@ export const credit_cards = [
 ];
 
 export const categories = [
-  { id: 1, name: "Fatura Mercado Pago", parent_id: null },
+  /* ⚠️ ISTO É O QUE O ORGANIZZE DO MICHEL TEM DE VERDADE: a categoria do
+     pagamento de fatura é SUBcategoria de "Dívidas e empréstimos", não é
+     categoria de topo. A primeira versão do teste a colocou na raiz — e a
+     correção passou aqui e falhou no painel dele. Fixture que não copia a
+     forma do dado real testa a fantasia, não o produto. */
+  { id: 1, name: "Fatura Mercado Pago", parent_id: 5 },
   { id: 2, name: "Transferências",      parent_id: null },
   { id: 3, name: "Moradia",             parent_id: null },
   { id: 4, name: "Aluguel",             parent_id: 3 },
@@ -38,6 +43,13 @@ export const invoices = {
     { id: 320, date: "2026-09-12", closing_date: "2026-09-05", starting_date: "2026-08-06", amount_cents: -5513,   balance_cents: -5513,   payment_amount_cents: 0 }
   ],
   2261913: [
+    /* ⚠️ FATURAS ANTIGAS, JÁ PAGAS. A API devolve o ANO INTEIRO, e é isso que
+       derrubou a primeira correção: o pagamento de agosto foi parar na fatura
+       de dezembro/2025, "a mais antiga ainda aberta". Repare que o Organizze
+       ZERA o balance quando a fatura é quitada de verdade, mas mantém o amount
+       como registro — quem manda é o balance. */
+    { id: 312, date: "2026-01-07", closing_date: "2025-12-31", starting_date: "2025-12-01", amount_cents: -423038, balance_cents: 0, payment_amount_cents: 0 },
+    { id: 318, date: "2026-07-07", closing_date: "2026-06-30", starting_date: "2026-05-31", amount_cents: -484990, balance_cents: 0, payment_amount_cents: 0 },
     { id: 319, date: "2026-08-08", closing_date: "2026-08-01", starting_date: "2026-07-02", amount_cents: -1035802, balance_cents: -1035802, payment_amount_cents: 0 },
     { id: 320, date: "2026-09-08", closing_date: "2026-09-01", starting_date: "2026-08-02", amount_cents: -1189937, balance_cents: -1189937, payment_amount_cents: 0 },
     { id: 321, date: "2026-10-08", closing_date: "2026-10-01", starting_date: "2026-09-02", amount_cents: -280876,  balance_cents: -280876,  payment_amount_cents: 0 }
