@@ -91,7 +91,11 @@ console.log("\nGASTO DO MÊS — pagamento de fatura e transferência não são 
 /* o gasto do mês é a compra no cartão (R$ 2.614,26 de aluguel) e MAIS NADA:
    o pagamento da fatura de R$ 10.043,72 é a mesma compra chegando pela
    segunda vez, e contá-lo dobrava o mês inteiro. */
-eq("gasto do mês = as compras do cartão, sem o pagamento da fatura", D.gastoMes.totalCents, 261426 + 118166);
+eq("gasto do mês = as compras do cartão, sem o pagamento da fatura", D.gastoMes.totalCents, 261426 + 118166 + 50000);
+/* ⚠️ ESTE É O CASO QUE O FIXTURE NÃO COBRIA. A compra de R$ 500,00 tem
+   date 2026-09-02 e pertence à fatura 320 (período 02/08 a 01/09). Antes de
+   08/09/2026 ela sumia de agosto e aparecia em setembro. Se este número voltar
+   a ser 261426 + 118166, a regra de competência por fatura foi desfeita. */
 eq("transferência interna fora da renda", D.rendaMesCents, 0);
 eq("conta arquivada fora do gasto", D.gastoMes.categorias.filter(c => c.nome === "Dívidas e empréstimos").length, 0);
 

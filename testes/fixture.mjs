@@ -67,6 +67,14 @@ export const transactions = [
   // compra no cartão: não é movimento de conta
   { id: 3227677565, description: "Aluguel", date: "2026-08-06", paid: true,
     amount_cents: -261426, account_id: null, credit_card_id: 2261913, credit_card_invoice_id: 320, category_id: 4, tags: [] },
+  /* ⚠️ COMPRA COM DATA CARIMBADA PELO OPEN FINANCE.
+     Pertence à fatura 320, cujo período de compra é 02/08 a 01/09, mas veio
+     com date 2026-09-02, FORA desse período. Foi assim que 131 das 137 linhas
+     da fatura real de setembro/2026 chegaram, jogando R$ 10.419,41 de agosto
+     dentro de setembro. Tem que contar no mês da FATURA, não no do carimbo. */
+  { id: 3227677599, description: "Compra carimbada pelo Open Finance", date: "2026-09-02",
+    paid: true, amount_cents: -50000, account_id: null, credit_card_id: 2261913,
+    credit_card_invoice_id: 320, category_id: 4, tags: [] },
   // transferência interna: não é renda nem gasto
   { id: 3227678167, description: "Saída da caixinha Emergência", date: "2026-08-06", paid: true,
     amount_cents: -1004300, account_id: 10020699, category_id: 2, tags: [{ name: "Transferência Interna" }] },

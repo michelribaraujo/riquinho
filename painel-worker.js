@@ -236,6 +236,13 @@ async function montarDados(env) {
   // os lançamentos — é lá que estão os pagamentos de fatura.
   const faturasPorCartao = await Promise.all(cartoes.map(c => org(env, `/credit_cards/${c.id}/invoices`)));
   const faturas = [];
+  /* Período de compra de cada fatura, chaveado por CARTÃO + id da fatura.
+     ⛔ O id da fatura NÃO é único entre cartões: os três cartões dele têm uma
+     fatura 320, com períodos diferentes. Chavear só pelo id faz o último cartão
+     lido sobrescrever os outros, e a compra passa a ser medida contra o período
+     do cartão errado. Serve para saber a que MÊS uma compra de cartão pertence
+     quando o campo `date` não é confiável. */
+  const periodoFatura = {};
   /* Transações: do INICIO até 6 meses à frente, UM MÊS POR VEZ.
      ⚠️ A doc do Organizze diz, com todas as letras, que "a paginação de
      movimentações é feita com os parâmetros start_date e end_date". Ou seja:
@@ -411,6 +418,7 @@ async function montarDados(env) {
       else if (aberto === 0) status = "paga";
       else if (venc < hojeISO) status = "vencida";
       else status = "fechada";
+      if (f.id && abre && fecha) periodoFatura[c.id + ":" + f.id] = { abre, fecha };
       faturas.push({
         cartaoId: c.id, mes: venc.slice(0, 7), vencimento: venc,
         valorCents: f.amount_cents || 0,
@@ -481,6 +489,28 @@ async function montarDados(env) {
   const EH_CONGELADO_T = t => ehCartao(t) && idsCartaoCongelado.has(t.credit_card_id);
   /* Dinheiro que realmente saiu ou vai sair do bolso dele. */
   const REAL_DA_CASA = t => DA_CASA(t) && !EH_PREVISAO_T(t) && !EH_CONGELADO_T(t);
+
+  /* ⚠️⚠️ A DATA DE UMA COMPRA DE CARTÃO NEM SEMPRE É A DATA DA COMPRA. ⚠️⚠️
+     Descoberto em 08/09/2026: das 137 linhas da fatura que venceu 08/09 (período
+     de compra 02/08 a 01/09), 131 vieram do Open Finance carimbadas com
+     `date: 2026-09-02`, uma data FORA do período da própria fatura. São
+     R$ 10.419,41 de compras de agosto empilhadas no dia 2 de setembro. O efeito
+     na tela: "gasto até dia 8" de R$ 19.549,35 e projeção de R$ 73 mil, com
+     agosto artificialmente leve e a média de 3 meses torta.
+
+     A fatura é fato da API e não mente; o campo `date` é o que o banco mandou.
+     Então: quando a data da compra cai DENTRO do período da fatura dela, ela é
+     confiável e vale. Quando cai fora, é carimbo de importação, e a compra é
+     contada no primeiro dia do período da própria fatura.
+     ⛔ Isto NÃO reescreve nada no Organizze: só decide em que mês a linha entra. */
+  function dataDeCompetencia(t) {
+    const d = String(t.date || "").slice(0, 10);
+    if (!ehCartao(t)) return d;
+    const p = periodoFatura[t.credit_card_id + ":" + t.credit_card_invoice_id];
+    if (!p || !p.abre || !p.fecha) return d;
+    if (d >= p.abre && d <= p.fecha) return d;
+    return p.abre;
+  }
 
   let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived && !EH_RADAR(a)).map(a => {
@@ -583,7 +613,7 @@ async function montarDados(env) {
     const mapa = {}, subs = {};
     let total = 0, renda = 0, bruta = 0, interna = 0;
     for (const t of todos) {
-      const d = String(t.date).slice(0, 10);
+      const d = dataDeCompetencia(t);   // ⛔ NUNCA t.date direto: ver dataDeCompetencia
       if (d < d0 || d > d1) continue;
       /* ⛔ GASTO É O QUE JÁ ACONTECEU. Lançamento com data futura dentro do mês
          corrente entrava no total e depois esse total era dividido pelos dias JÁ
