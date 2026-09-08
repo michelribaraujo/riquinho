@@ -468,8 +468,15 @@ async function montarDados(env) {
        · o cartão congelado é dívida que ele decidiu não pagar — ela não disputa
          o caixa do mês e não pode inflar "total comprometido".
      Agora o filtro é por ID de cartão, não por nome espalhado pelo código. */
-  const idsCartaoPrevisao  = new Set(cartoes.filter(c => CARTAO_PREVISAO(c.name)).map(c => c.id));
-  const idsCartaoCongelado = new Set(cartoes.filter(c => CARTAO_CONGELADO(c.name)).map(c => c.id));
+  /* ⛔ O CAMPO AQUI É `nome`, NÃO `name`. `cartoes` é o array JÁ MAPEADO na
+     linha 208, que renomeia `name` para `nome`. Em 08/09/2026 eu escrevi
+     `c.name` nestas duas linhas: os dois Sets saíam VAZIOS, os dois filtros
+     abaixo davam sempre false, e a correção inteira ficou inerte — o painel
+     seguiu somando o cartão radar junto com o real (mesma compra duas vezes)
+     e a fatura do Inter congelada como gasto do mês. Passou em `node --check`
+     e no build porque `undefined` é JavaScript válido. */
+  const idsCartaoPrevisao  = new Set(cartoes.filter(c => CARTAO_PREVISAO(c.nome)).map(c => c.id));
+  const idsCartaoCongelado = new Set(cartoes.filter(c => CARTAO_CONGELADO(c.nome)).map(c => c.id));
   const EH_PREVISAO_T  = t => ehCartao(t) && idsCartaoPrevisao.has(t.credit_card_id);
   const EH_CONGELADO_T = t => ehCartao(t) && idsCartaoCongelado.has(t.credit_card_id);
   /* Dinheiro que realmente saiu ou vai sair do bolso dele. */
@@ -670,8 +677,18 @@ async function montarDados(env) {
     const d = String(t.date).slice(0, 10);
     const alvo = dividasMapa[base] || (dividasMapa[base] = {
       nome: base, parcelaCents: Math.abs(t.amount_cents), restam: 0, saldoCents: 0,
-      estado: "correndo", juros: null, negativada: false });
-    if (!t.paid && d >= hojeISO) { alvo.restam++; alvo.saldoCents += Math.abs(t.amount_cents); }
+      _dataParcela: null, estado: "correndo", juros: null, negativada: false });
+    if (!t.paid && d >= hojeISO) {
+      alvo.restam++; alvo.saldoCents += Math.abs(t.amount_cents);
+      /* ⚠️ A PARCELA QUE SE MOSTRA É A PRÓXIMA A VENCER, não a primeira linha
+         que o laço encontrou. Série criada em blocos tem valores diferentes no
+         meio (a Claro foi 350 até jun/2027 e 490,46 depois), e a ordem de
+         `lanc` não é garantida: sem isto o painel podia exibir o valor de uma
+         parcela já paga como se fosse a que ele vai pagar. */
+      if (!alvo._dataParcela || d < alvo._dataParcela) {
+        alvo._dataParcela = d; alvo.parcelaCents = Math.abs(t.amount_cents);
+      }
+    }
   }
   /* ⚠️ `restam` e `saldoCents` só enxergam o que está DENTRO da janela de
      transações (hoje + 6 meses). Uma dívida de 33 parcelas devolve restam ≤ 6.
@@ -680,7 +697,7 @@ async function montarDados(env) {
      risco de truncagem), então o painel passa a DIZER que a conta é parcial em
      vez de mentir um total. */
   const dividas = Object.values(dividasMapa).filter(d => d.restam > 0)
-    .map(d => ({ ...d, janelaMeses: 6, parcial: d.restam >= 6 }));
+    .map(({ _dataParcela, ...d }) => ({ ...d, janelaMeses: 6, parcial: d.restam >= 6 }));
 
   // Parcelas de cartão ainda a vencer (compras com total_installments > 1)
   const parcMapa = {};
