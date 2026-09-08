@@ -1068,7 +1068,15 @@ function recalcular(){
   c.faturaDoMesCents = soma(fatDoMes, function(f){ return Math.abs(f.saldoCents); });
 
   /* CONTAS A PAGAR ainda deste mês (data ≥ hoje e ≤ fim do mês) */
-  var pagarMes = DADOS.aPagar.filter(function(p){ return p.data >= hoje && p.data <= fimMes; });
+  /* ⛔ CONTA VENCIDA E NÃO PAGA CONTINUA SENDO COMPROMISSO DO MÊS.
+     Antes o filtro era `p.data >= hoje`, então uma conta que venceu dia 5 e não
+     foi paga simplesmente sumia dos "compromissos do mês" — mas continuava na
+     projeção, empurrada pra hoje. Resultado: "sobra" e "teto de hoje" saíam
+     otimistas justamente no cenário em que ele mais precisa da verdade.
+     Agora: tudo que vence DENTRO do mês e não foi pago conta, vencido ou não. */
+  var iniMesLocal = hoje.slice(0,8) + "01";
+  var pagarMes = DADOS.aPagar.filter(function(p){ return p.data >= iniMesLocal && p.data <= fimMes; });
+  c.aPagarVencidas = pagarMes.filter(function(p){ return p.data < hoje; });
   c.aPagarMes = pagarMes;
   c.aPagarMesCents = soma(pagarMes, function(p){ return Math.abs(p.cents); });
 
@@ -1421,9 +1429,18 @@ function calcularMes(y, c){
   m.receber = DADOS.aReceber.filter(function(r){ return r.data.slice(0,7) === y; });
   m.receberCents = soma(m.receber, function(r){ return r.cents; });
 
-  var g = (DADOS.meses && DADOS.meses[y]) || null;
-  m.gastoCents = g ? g.gastoTotal : (m.corrente ? DADOS.gastoMes.totalCents : 0);
-  m.rendaCents = g ? g.renda : 0;
+  /* ⛔ `DADOS.meses` NUNCA EXISTIU. O worker devolve `historico.meses`, que é um
+     ARRAY de "YYYY-MM", com as séries `historico.gastoTotal` e
+     `historico.rendaLiquida` no mesmo índice. O código antigo lia um objeto
+     inexistente, caía no fallback e mostrava Gasto R$ 0,00 e Renda R$ 0,00 nos
+     meses passados — com as categorias logo abaixo mostrando valor de verdade.
+     Corrigido em 08/09/2026. */
+  var _h = DADOS.historico || {};
+  var _i = (_h.meses || []).indexOf(y);
+  var g = (_i >= 0) ? { gastoTotal: (_h.gastoTotal || [])[_i], renda: (_h.rendaLiquida || [])[_i] } : null;
+  m.gastoCents = (g && typeof g.gastoTotal === "number") ? g.gastoTotal
+               : (m.corrente ? DADOS.gastoMes.totalCents : 0);
+  m.rendaCents = (g && typeof g.renda === "number") ? g.renda : 0;
   m.temGasto = !!g;
 
   // Categorias: o mês corrente tem detalhe com subcategoria; os outros vêm da série histórica.

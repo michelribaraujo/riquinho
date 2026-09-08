@@ -135,6 +135,23 @@ async function org(env, caminho) {
 }
 
 function iso(d) { return d.toISOString().slice(0, 10); }
+
+/* ⚠️⚠️ O WORKER RODA EM UTC. O MICHEL VIVE EM AMERICA/SAO_PAULO. ⚠️⚠️
+   `new Date()` num Cloudflare Worker é UTC. Das 21h de Brasília em diante o
+   painel já achava que era o dia seguinte — e no dia 30/31 isso virava o MÊS
+   inteiro: gasto do mês, compromissos, teto do dia, tudo do mês errado.
+   Corrigido em 08/09/2026, depois de eu cometer o mesmo erro conversando com
+   ele: disse "a fatura vence hoje" às 23:17, porque o container já tinha
+   virado o dia. ⛔ Nunca mais usar `new Date()` cru para decidir "hoje". */
+const TZ_BR = "America/Sao_Paulo";
+function hojeBRISO() {
+  // en-CA formata como YYYY-MM-DD, que é exatamente o formato que o painel usa.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ_BR }).format(new Date());
+}
+function agoraBR() {
+  // Meio-dia UTC: longe o bastante das bordas pra nenhuma conversão virar o dia.
+  return new Date(hojeBRISO() + "T12:00:00Z");
+}
 function addMeses(d, n) { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
 function ultimoDia(ano, mes) { return new Date(ano, mes, 0).getDate(); }
 
@@ -167,8 +184,8 @@ function ehCartao(t) {
 }
 
 async function montarDados(env) {
-  const hoje = new Date();
-  const hojeISO = iso(hoje);
+  const hoje = agoraBR();          // ⛔ NUNCA new Date(): o Worker roda em UTC
+  const hojeISO = hojeBRISO();
   const ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
   /* ⚠️ O INÍCIO NÃO PODE SER UM CHUTE. A soma do saldo só fecha se ela
      começar exatamente onde os dados começam. Por isso o início nasce da
@@ -233,7 +250,11 @@ async function montarDados(env) {
      nos meses antigos, que são os mais magros. */
   const mesesTotais = (Number(fim.slice(0, 4)) - Number(inicio.slice(0, 4))) * 12
                     + (Number(fim.slice(5, 7)) - Number(inicio.slice(5, 7))) + 1;
-  const passo = mesesTotais > 40 ? 2 : 1;
+  /* ⛔ PASSO SEMPRE 1. Já foi `mesesTotais > 40 ? 2 : 1`, e o passo 2 reintroduz
+     em silêncio a mesma truncagem que gerou o caixa de -R$ 31 mil: a fatia volta
+     incompleta e ninguém avisa. Se um dia estourar o teto de subrequisições, a
+     solução é encurtar o INÍCIO, nunca engordar a fatia. */
+  const passo = 1;
   const fatias = [];
   let cursor = new Date(inicio + "T12:00:00");
   while (iso(cursor) < fim) {
@@ -438,6 +459,22 @@ async function montarDados(env) {
     ? idsCartaoVivo.has(t.credit_card_id)
     : idsContaViva.has(t.account_id);
 
+  /* ⚠️⚠️ RADAR E CONGELADO NÃO SÃO DINHEIRO GASTO. ⚠️⚠️
+     Até 08/09/2026 o flag de previsão e o de congelado só existiam nas FATURAS.
+     O resto do painel (gasto do mês, categorias, parcelas, recorrentes, últimos
+     lançamentos) continuava somando os dois:
+       · o cartão "MercadoPago (manual)" é radar de previsão — contar ele junto
+         com o cartão real é contar a MESMA compra duas vezes;
+       · o cartão congelado é dívida que ele decidiu não pagar — ela não disputa
+         o caixa do mês e não pode inflar "total comprometido".
+     Agora o filtro é por ID de cartão, não por nome espalhado pelo código. */
+  const idsCartaoPrevisao  = new Set(cartoes.filter(c => CARTAO_PREVISAO(c.name)).map(c => c.id));
+  const idsCartaoCongelado = new Set(cartoes.filter(c => CARTAO_CONGELADO(c.name)).map(c => c.id));
+  const EH_PREVISAO_T  = t => ehCartao(t) && idsCartaoPrevisao.has(t.credit_card_id);
+  const EH_CONGELADO_T = t => ehCartao(t) && idsCartaoCongelado.has(t.credit_card_id);
+  /* Dinheiro que realmente saiu ou vai sair do bolso dele. */
+  const REAL_DA_CASA = t => DA_CASA(t) && !EH_PREVISAO_T(t) && !EH_CONGELADO_T(t);
+
   let saldoOrigem = "api";
   const contas = contasRaw.filter(a => !a.archived && !EH_RADAR(a)).map(a => {
     /* ⚠️ O NOME DO CAMPO É O PROBLEMA. Eu testei balance_cents,
@@ -447,10 +484,11 @@ async function montarDados(env) {
        dinheiro é INTEIRO em centavos (amount_cents). Se vier com casa
        decimal, é reais e precisa de ×100. */
     let bruto = [a.balance_cents, a.balance_in_cents, a.current_balance_cents,
-                 a.saldo_cents, a.current_balance].find(v => typeof v === "number");
-    if (bruto === undefined && typeof a.balance === "number") {
-      bruto = Number.isInteger(a.balance) ? a.balance : Math.round(a.balance * 100);
-    }
+                 a.saldo_cents, a.current_balance, a.balance].find(v => typeof v === "number");
+    /* ⚠️ A REGRA DE ESCALA VALE PRA TODOS, não só pro `balance`. `current_balance`
+       entrava na lista sem passar por este teste: se a API devolvesse ele em
+       reais, o caixa aparecia 100x menor e ninguém saberia por quê. */
+    if (typeof bruto === "number" && !Number.isInteger(bruto)) bruto = Math.round(bruto * 100);
     let s = (bruto !== undefined) ? bruto : null;
     if (s === null) {
       saldoOrigem = "somado";
@@ -540,7 +578,11 @@ async function montarDados(env) {
     for (const t of todos) {
       const d = String(t.date).slice(0, 10);
       if (d < d0 || d > d1) continue;
-      if (!DA_CASA(t)) continue;
+      /* ⛔ GASTO É O QUE JÁ ACONTECEU. Lançamento com data futura dentro do mês
+         corrente entrava no total e depois esse total era dividido pelos dias JÁ
+         CORRIDOS: o "por dia" e a "projeção do mês" inflavam duas vezes. */
+      if (d > hojeISO) continue;
+      if (!REAL_DA_CASA(t)) continue;
       const raiz = nomeRaiz(t.category_id);
       if (t.amount_cents > 0) {
         bruta += t.amount_cents;
@@ -577,6 +619,7 @@ async function montarDados(env) {
   for (const t of lanc) {
     const d = String(t.date).slice(0, 10);
     if (d < proximo[0] || d > proximo[1] || t.amount_cents >= 0) continue;
+    if (EH_CONGELADO_T(t)) continue;  // assinatura em cartão congelado não é custo recorrente dele
     const nome = String(t.description || "").trim();
     if (jaVi.has(nome)) continue;
     const v = Math.abs(t.amount_cents);
@@ -622,6 +665,7 @@ async function montarDados(env) {
   const dividasMapa = {};
   for (const t of lanc) {
     if (!temTag(t, "Dívida") || t.amount_cents >= 0) continue;
+    if (EH_PREVISAO_T(t)) continue;   // radar não é dívida real
     const base = String(t.description).replace(/\s*\(\d+\/\d+\)\s*$/, "").trim();
     const d = String(t.date).slice(0, 10);
     const alvo = dividasMapa[base] || (dividasMapa[base] = {
@@ -629,12 +673,20 @@ async function montarDados(env) {
       estado: "correndo", juros: null, negativada: false });
     if (!t.paid && d >= hojeISO) { alvo.restam++; alvo.saldoCents += Math.abs(t.amount_cents); }
   }
-  const dividas = Object.values(dividasMapa).filter(d => d.restam > 0);
+  /* ⚠️ `restam` e `saldoCents` só enxergam o que está DENTRO da janela de
+     transações (hoje + 6 meses). Uma dívida de 33 parcelas devolve restam ≤ 6.
+     Antes isso virava "faltam 6" e "R$ X ainda a vencer" na tela, como se fosse
+     o total. Não dá pra saber o resto sem alargar a janela (e alargar aumenta o
+     risco de truncagem), então o painel passa a DIZER que a conta é parcial em
+     vez de mentir um total. */
+  const dividas = Object.values(dividasMapa).filter(d => d.restam > 0)
+    .map(d => ({ ...d, janelaMeses: 6, parcial: d.restam >= 6 }));
 
   // Parcelas de cartão ainda a vencer (compras com total_installments > 1)
   const parcMapa = {};
   for (const t of lanc) {
     if (!ehCartao(t) || !(t.total_installments > 1)) continue;
+    if (EH_PREVISAO_T(t) || EH_CONGELADO_T(t)) continue;  // radar e congelado não comprometem caixa
     if (temTag(t, "Dívida")) continue; // já contada como dívida — não contar duas vezes
     const d = String(t.date).slice(0, 10);
     if (d < hojeISO) continue;
@@ -645,7 +697,7 @@ async function montarDados(env) {
   const parcelas = Object.values(parcMapa).sort((a, b) => b.cents - a.cents);
 
   const ultimos = lanc
-    .filter(t => t.paid && String(t.date).slice(0, 10) <= hojeISO && !INTERNA(t))
+    .filter(t => t.paid && String(t.date).slice(0, 10) <= hojeISO && !INTERNA(t) && !EH_PREVISAO_T(t))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 12)
     .map(t => ({ data: String(t.date).slice(0, 10), desc: t.description,
